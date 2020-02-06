@@ -147,8 +147,8 @@ private:
     
     // MARK: Bounding Box Compute
     void computeBoundingBox() {
-        Vector3D min;
-        Vector3D max;
+        Vector3D min = vertices.front();
+        Vector3D max = vertices.front();
         
         for (Vector3D current: vertices) {
             min.x = std::min(min.x, current.x);
