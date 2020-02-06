@@ -201,7 +201,7 @@ public:
         boundsMesh->setRenderingStyle(GL_LINES);
         boundsMesh->color = Vector3D(0, 1, 0);
         
-        childrens.emplace_back(boundsMesh);
+        childrens.push_back(boundsMesh);
     }
     
     // MARK: Mesh Render
@@ -308,14 +308,16 @@ public:
     
     static void init(int &argc, char** &argv) {
         glutInit(&argc, argv);
-        glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+        glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
     }
     
     static void createWindow(int width, int height, const char title[]) {
         glutInitWindowSize(width, height);
         glutCreateWindow(title);
+        
         glClearColor(0, 0, 0, 1);
-        Renderer::camera.resize(width, height);
+        glEnable(GL_DEPTH_TEST);
+        handleResize(width, height);
     }
     
     static void start() {
@@ -353,11 +355,8 @@ Camera Renderer::camera;
 
 class OrbitControls {
 private:
-    //    static void handleKeypress(unsigned char key, int x, int y) {}
-    //    static void mouseClick(int button, int state, int screenX, int screenY) {
-    //
-    //    }
-    //
+    // static void handleKeypress(unsigned char key, int x, int y) {}
+    // static void mouseClick(int button, int state, int screenX, int screenY) {
     static void mouseMove(int screenX, int screenY) {
         float viewX = (float)screenX / (float)Renderer::camera.getWidth();
         float viewY = (float)screenY / (float)Renderer::camera.getHeight();
@@ -368,8 +367,8 @@ private:
     
 public:
     static void init() {
-        //        glutKeyboardFunc(OrbitControls::handleKeypress);
-        //        glutMouseFunc(OrbitControls::mouseClick);
+        // glutKeyboardFunc(OrbitControls::handleKeypress);
+        // glutMouseFunc(OrbitControls::mouseClick);
         glutMotionFunc(OrbitControls::mouseMove);
     }
 };
@@ -377,13 +376,13 @@ public:
 
 Object* makeOrigin() {
     Mesh *x, *y, *z;
-    x = new Mesh({Vector3D(-1,-0,-0), Vector3D(1,0,0)}, { 0, 1, 0});
-    y = new Mesh({Vector3D(-0,-1,-0), Vector3D(0,1,0)}, { 0, 1, 0});
-    z = new Mesh({Vector3D(-0,-0,-1), Vector3D(0,0,1)}, { 0, 1, 0});
+    x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 });
+    y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 });
+    z = new Mesh({ Vector3D( 0, 0,-1), Vector3D( 0, 0, 1) }, { 0, 1, 0 });
     
-    x->color = Vector3D(1,0,0);
-    y->color = Vector3D(0,1,0);
-    z->color = Vector3D(0,0,1);
+    x->color = Vector3D( 1, 0, 0);
+    y->color = Vector3D( 0, 1, 0);
+    z->color = Vector3D( 0, 0, 1);
     
     x->setRenderingStyle(GL_LINES);
     y->setRenderingStyle(GL_LINES);
