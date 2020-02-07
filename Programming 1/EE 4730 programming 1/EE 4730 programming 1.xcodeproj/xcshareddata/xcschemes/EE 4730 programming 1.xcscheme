@@ -54,11 +54,15 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "camel.obj"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "bunny.obj"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "David.obj"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>

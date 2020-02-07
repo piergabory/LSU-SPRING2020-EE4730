@@ -402,24 +402,40 @@ Object* makeOrigin() {
 // MARK: - MAIN -
 
 int main(int argc, char** argv) {
-    // place origin in view
-    Object *origin = makeOrigin();
-    Renderer::camera.childrens.push_back(origin);
     
-    Mesh *mesh = nullptr;
+    Object *scene = new Object();
+    Renderer::camera.childrens.push_back(scene);
+    
+    Object *origin = makeOrigin();
+    scene->childrens.push_back(origin);
+    
+    Mesh *lastmesh = nullptr;
     for (int arg = 1; arg < argc; arg ++) {
-        // Create mesh, and place into view
-        mesh = new Mesh();
-        if (!mesh->fromOBJFile(argv[arg])) { return 1; }
-        mesh->setRenderingStyle(GL_TRIANGLES);
-        mesh->showBounds();
-        Renderer::camera.childrens.push_back(mesh);
+        
+        Mesh *mesh = new Mesh();
+        
+        // try to load obj, and push into the scene
+        if (mesh->fromOBJFile(argv[arg])) {
+            mesh->setRenderingStyle(GL_TRIANGLES);
+            mesh->showBounds();
+            
+            lastmesh = mesh;
+            scene->childrens.push_back(mesh);
+        }
+        
+        // Free memory if failed to open file
+        else {
+            delete mesh;
+        }
     }
     
-    if (mesh != nullptr) {
-        // Place camera to capture the whole mesh (last added)
-        BoundingBox bounds = mesh->getBounds();
-        Renderer::camera.position = (bounds.center() + Vector3D(0, 0, bounds.diagonal() * 1.5)) * -1;
+    // center camera point of view on the last mesh
+    // we move the scene so the orbit is around the object
+    // then we translate the camera back so it fits in the fov.
+    if (lastmesh != nullptr) {
+        BoundingBox bounds = lastmesh->getBounds();
+        scene->position = bounds.center() * -1;
+        Renderer::camera.position.z = -1.5 * bounds.diagonal();
     }
     
     Renderer::init(argc, argv);
