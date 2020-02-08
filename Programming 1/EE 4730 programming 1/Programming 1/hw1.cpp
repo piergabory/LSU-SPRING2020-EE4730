@@ -17,6 +17,9 @@
 ///  ./hw1 [obj_file_1] [obj_file_2] ...
 ///  Obj files are consecutively loaded, the camera will be centered on the last one.
 ///
+/// # 
+///
+///
 
 // MacOs
 #ifdef __APPLE__
@@ -65,8 +68,8 @@ struct Vector3D {
 
 
 
-/// Class describes a box aligned to the space axes.
-/// Box is represented by two opposites points, min and max
+/// Box aligned to the space axes.
+/// Represented by two opposites points, min and max
 /// - Max is the ccrner  facing direction (+X, +Y, +Z)
 /// - Min is the corner facing direction (-X, -Y, -Z)
 struct BoundingBox {
@@ -81,7 +84,7 @@ struct BoundingBox {
 
 
 /// Base Object Class
-/// Class describing the object tree in the scene
+/// Object tree in the scene
 /// Inherited by the camera, meshes, and eventually lights..
 struct Object {
     Vector3D position;
@@ -123,6 +126,8 @@ public:
 
 
 
+/// Point of view of the scene
+/// Defines and updates the matrix projection
 class Camera: public Object {
 private:
     float fieldOfView = 45.0f;
@@ -130,32 +135,46 @@ private:
     int height = 400;
     float nearField = 1.0;
     float farField = 1000.0;
+    
     void updateView() const;
     
 public:
+    void resize(int newWidth, int newHeight);
+    
+    // Getters
     inline const int getWidth() const { return width; }
     inline const int getHeight() const { return height; }
-    void resize(int newWidth, int newHeight);
 };
 
 
 
+/// Renderer static class
+/// Provides the draw and update loop to OpenGL
+/// Usage: Init is called in `main()` first.
+/// second comes `createWindow()` where the app window will appear
+/// finally `start()` launches the render loop.
+///
+/// The camera property is the point of view and root of the scene graph.
 class Renderer {
+private:
+    static void draw();
+    static void update(int value);
+    static void handleResize(int w, int h);
+    
 public:
     static Camera camera;
     
     static void init(int &argc, char** &argv);
     static void createWindow(int width, int height, const char title[]);
     static void start();
-    static void handleResize(int w, int h);
-    
-private:
-    static void draw();
-    static void update(int value);
 };
 
 
 
+/// Orbital Camera controls
+/// Simple and classic orbital camera control scheme using mouse input.
+/// Takes the Renderer::camera and rotates it around the (0,0,0) scene coordinates.
+/// The camera up direction is always alined to the Z axis
 class OrbitControls {
 private:
     static void mouseMove(int screenX, int screenY);
@@ -164,11 +183,12 @@ public:
 };
 
 
+/// Factory function, generates an origin axis mesh object.
 Object* makeOrigin() {
     Mesh *x, *y, *z;
-    x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 });
-    y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 });
-    z = new Mesh({ Vector3D( 0, 0,-1), Vector3D( 0, 0, 1) }, { 0, 1, 0 });
+    x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 }); // Red X
+    y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 }); // Green Y
+    z = new Mesh({ Vector3D( 0, 0,-1), Vector3D( 0, 0, 1) }, { 0, 1, 0 }); // Blue Z
     
     x->color = Vector3D( 1, 0, 0);
     y->color = Vector3D( 0, 1, 0);
@@ -186,9 +206,6 @@ Object* makeOrigin() {
     
     return origin;
 }
-
-
-
 
 
 
