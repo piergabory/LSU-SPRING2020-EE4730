@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-               BuildableName = "EE 4730 programming 1"
-               BlueprintName = "EE 4730 programming 1"
-               ReferencedContainer = "container:EE 4730 programming 1.xcodeproj">
+               BuildableName = "Programming 1"
+               BlueprintName = "Programming 1"
+               ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,9 +46,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-            BuildableName = "EE 4730 programming 1"
-            BlueprintName = "EE 4730 programming 1"
-            ReferencedContainer = "container:EE 4730 programming 1.xcodeproj">
+            BuildableName = "Programming 1"
+            BlueprintName = "Programming 1"
+            ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -77,9 +77,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-            BuildableName = "EE 4730 programming 1"
-            BlueprintName = "EE 4730 programming 1"
-            ReferencedContainer = "container:EE 4730 programming 1.xcodeproj">
+            BuildableName = "Programming 1"
+            BlueprintName = "Programming 1"
+            ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
