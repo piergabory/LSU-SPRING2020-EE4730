@@ -40,45 +40,28 @@
 #include <algorithm>
 #include <cmath>
 
-
-
-
+#include "Vertex.h"
+#include "Point.h"
+#include "Halfedge.h"
+#include "Edge.h"
+#include "Mesh.h"
+#include "Iterators.h"
 
 
 
 // MARK: - CLASS HEADERS -
-
-/// Simple vector class with basic arithmetic
-struct Vector3D {
-    float x, y, z;
-    Vector3D(float x = 0, float y = 0, float z = 0): x(x), y(y), z(z) {}
-    inline float magnitudeSquared() const;
-    inline float magnitude() const;
-    inline float* data();
-    
-    // Vector arithmetic
-    inline void operator +=(Vector3D v);
-    inline Vector3D operator +(Vector3D v) const;
-    inline Vector3D operator -(Vector3D v) const;
-    inline Vector3D operator +(float s) const;
-    inline Vector3D operator -(float s) const;
-    inline Vector3D operator *(float s) const;
-    inline Vector3D operator /(float s) const;
-};
-
-
 
 /// Box aligned to the space axes.
 /// Represented by two opposites points, min and max
 /// - Max is the ccrner  facing direction (+X, +Y, +Z)
 /// - Min is the corner facing direction (-X, -Y, -Z)
 struct BoundingBox {
-    Vector3D min;
-    Vector3D max;
-    BoundingBox(Vector3D min, Vector3D max): min(min), max(max) {}
+    Point min;
+    Point max;
+    BoundingBox(Point min, Point max): min(min), max(max) {}
     
-    inline Vector3D center() const;
-    inline float diagonal() const;
+    inline Point center();
+    inline float diagonal();
 };
 
 
@@ -87,9 +70,9 @@ struct BoundingBox {
 /// Object tree in the scene
 /// Inherited by the camera, meshes, and eventually lights..
 struct Object {
-    Vector3D position;
-    Vector3D rotation;
-    Vector3D scale = Vector3D(1, 1, 1);
+    Point position;
+    Point rotation;
+    Point scale = Point(1, 1, 1);
     std::vector<Object *> childrens;
     
     virtual void render() const;
@@ -97,31 +80,26 @@ struct Object {
 
 
 
-/// Mesh Class
-/// Collection of faces
+/// RenderableObject Class
 /// Provides bounding box containing all the vertices
-class Mesh: public Object {
-typedef Vector3D Vertex;
+class RenderableObject: public Object {
+
 private:
     GLenum type = GL_TRIANGLES;
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> faces;
+    Mesh *mesh;
     BoundingBox *bounds = nullptr;
-
     void computeBoundingBox();
     
 public:
-    Vector3D color = Vector3D(1, 1, 1);
+    Point color = Point(1, 1, 1);
     
-    Mesh() {}
-    Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> faces);
-    ~Mesh();
+    RenderableObject(Mesh *mesh): mesh(mesh) {}
+    ~RenderableObject();
     
     inline void setRenderingStyle(GLenum mode);
     inline const BoundingBox& getBounds();
     inline void showBounds();
     void render() const override;
-    bool fromOBJFile(const char filename[]);
 };
 
 
@@ -183,34 +161,6 @@ public:
 };
 
 
-/// Factory function, generates an origin axis mesh object.
-Object* makeOrigin() {
-    Mesh *x, *y, *z;
-    x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 }); // Red X
-    y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 }); // Green Y
-    z = new Mesh({ Vector3D( 0, 0,-1), Vector3D( 0, 0, 1) }, { 0, 1, 0 }); // Blue Z
-    
-    x->color = Vector3D( 1, 0, 0);
-    y->color = Vector3D( 0, 1, 0);
-    z->color = Vector3D( 0, 0, 1);
-    
-    x->setRenderingStyle(GL_LINES);
-    y->setRenderingStyle(GL_LINES);
-    z->setRenderingStyle(GL_LINES);
-    
-    Object *origin = new Object();
-    
-    origin->childrens.push_back(x);
-    origin->childrens.push_back(y);
-    origin->childrens.push_back(z);
-    
-    return origin;
-}
-
-
-
-
-
 // MARK: - MAIN -
 
 int main(int argc, char** argv) {
@@ -218,21 +168,20 @@ int main(int argc, char** argv) {
     Object *scene = new Object();
     Renderer::camera.childrens.push_back(scene);
     
-    Object *origin = makeOrigin();
-    scene->childrens.push_back(origin);
+//    Object *origin = makeOrigin();
+//    scene->childrens.push_back(origin);
     
-    Mesh *lastmesh = nullptr;
+    RenderableObject *lastAddedObject = nullptr;
     for (int arg = 1; arg < argc; arg ++) {
         
         Mesh *mesh = new Mesh();
-        
         // try to load obj, and push into the scene
-        if (mesh->fromOBJFile(argv[arg])) {
-            mesh->setRenderingStyle(GL_TRIANGLES);
-            mesh->showBounds();
-            
-            lastmesh = mesh;
-            scene->childrens.push_back(mesh);
+        if (mesh->readOBJFile(argv[arg])) {
+            RenderableObject *object = new RenderableObject(mesh);
+            object->setRenderingStyle(GL_TRIANGLES);
+            object->showBounds();
+            scene->childrens.push_back(object);
+            lastAddedObject = object;
         }
         
         // Free memory if failed to open file
@@ -244,10 +193,10 @@ int main(int argc, char** argv) {
     // center camera point of view on the last mesh
     // we move the scene so the orbit is around the object
     // then we translate the camera back so it fits in the fov.
-    if (lastmesh != nullptr) {
-        BoundingBox bounds = lastmesh->getBounds();
+    if (lastAddedObject != nullptr) {
+        BoundingBox bounds = lastAddedObject->getBounds();
         scene->position = bounds.center() * -1;
-        Renderer::camera.position.z = -1.5 * bounds.diagonal();
+        Renderer::camera.position.v[2] = -1.5 * bounds.diagonal();
     }
     
     Renderer::init(argc, argv);
@@ -269,77 +218,36 @@ int main(int argc, char** argv) {
 
 
 
-// MARK: - Mesh
+// MARK: - RenderableObject
 
-// MARK: Mesh Render
+// MARK: RenderableObject Render
 
-void Mesh::render() const  {
+void RenderableObject::render() const  {
     Object::render();
     glBegin(type);
-    glColor3f(color.x, color.y, color.z);
-    for (int vertexIndex: faces) {
-        Vertex vertex = vertices[vertexIndex];
-        glVertex3fv(vertex.data());
+    glColor3dv(color.v);
+    for (MeshVertexIterator it(mesh); !it.end(); ++it) {
+        glVertex3dv((*it)->point().v);
     }
     glEnd();
 }
 
-// MARK: OBJ File loader
-
-bool Mesh::fromOBJFile(const char filename[]) {
-    std::ifstream objFile;
-    objFile.open(filename);
-    
-    // Check if object file open successfully
-    if ( !objFile.good() ) {
-        objFile.close();
-        std::cerr << "failed to open file " << filename << ".\n";
-        return false;
-    }
-    
-    
-    vertices.clear();
-    faces.clear();
-    
-    float vecX, vecY, vecZ;
-    unsigned int idxA, idxB, idxC;
-    
-    while ( !objFile.eof() && !objFile.fail()) {
-        char type = objFile.get();
-        
-        switch (type) {
-            case 'v': // Vertex position
-                objFile >> vecX >> vecY >> vecZ;
-                vertices.emplace_back(vecX, vecY, vecZ);
-                break;
-                
-            case 'f': // Face indexes
-                objFile >> idxA >> idxB >> idxC;
-                faces.insert(faces.end(), { idxA - 1, idxB - 1, idxC - 1 });
-                break;
-                
-            default: // Supported case
-                break;
-        }
-    }
-    
-    return true;
-}
-
 // MARK: Compute Bounding Box
 
-void Mesh::computeBoundingBox() {
-    Vector3D min = vertices.front();
-    Vector3D max = vertices.front();
+void RenderableObject::computeBoundingBox() {
+    MeshVertexIterator it(mesh);
     
-    for (Vector3D current: vertices) {
-        min.x = std::min(min.x, current.x);
-        min.y = std::min(min.y, current.y);
-        min.z = std::min(min.z, current.z);
+    Point min = it.value()->point();
+    Point max = it.value()->point();
+    
+    for (MeshVertexIterator it(mesh); !it.end(); ++it) {
+        min.v[0] = std::min(min.v[0], (*it)->point().v[0]);
+        min.v[1] = std::min(min.v[1], (*it)->point().v[1]);
+        min.v[2] = std::min(min.v[2], (*it)->point().v[2]);
         
-        max.x = std::max(max.x, current.x);
-        max.y = std::max(max.y, current.y);
-        max.z = std::max(max.z, current.z);
+        max.v[0] = std::max(max.v[0], (*it)->point().v[0]);
+        max.v[1] = std::max(max.v[1], (*it)->point().v[1]);
+        max.v[2] = std::max(max.v[2], (*it)->point().v[2]);
     }
     
     bounds = new BoundingBox(min, max);
@@ -347,39 +255,43 @@ void Mesh::computeBoundingBox() {
 
 // MARK: Mesh extras
 
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> faces):
-vertices(vertices), faces(faces) {}
-
-Mesh::~Mesh() {
+RenderableObject::~RenderableObject() {
     for (Object *child: childrens) { delete child; }
+    if (mesh != nullptr) {
+        delete mesh;
+    }
 }
 
-void Mesh::setRenderingStyle(GLenum mode) {
+void RenderableObject::setRenderingStyle(GLenum mode) {
     type = mode;
 }
 
-const BoundingBox& Mesh::getBounds() {
+const BoundingBox& RenderableObject::getBounds() {
     if (bounds == nullptr) { computeBoundingBox(); }
     return *bounds;
 }
 
-void Mesh::showBounds() {
+
+void RenderableObject::showBounds() {
     if (bounds == nullptr) { computeBoundingBox(); }
-    Mesh *boundsMesh = new Mesh({
-        bounds->min,                                            // 0
-        Vertex(bounds->max.x, bounds->min.y, bounds->min.z),    // 1
-        Vertex(bounds->max.x, bounds->max.y, bounds->min.z),    // 2
-        Vertex(bounds->min.x, bounds->max.y, bounds->min.z),    // 3
-        bounds->max,                                            // 4
-        Vertex(bounds->min.x, bounds->max.y, bounds->max.z),    // 5
-        Vertex(bounds->min.x, bounds->min.y, bounds->max.z),    // 6
-        Vertex(bounds->max.x, bounds->min.y, bounds->max.z)     // 7
-    }, { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6});
+    Mesh *boundsMesh = new Mesh();
     
-    boundsMesh->setRenderingStyle(GL_LINES);
-    boundsMesh->color = Vector3D(0, 1, 0);
+    //{
+//        bounds->min,                                            // 0
+//        Vertex(bounds->max.x, bounds->min.y, bounds->min.z),    // 1
+//        Vertex(bounds->max.x, bounds->max.y, bounds->min.z),    // 2
+//        Vertex(bounds->min.x, bounds->max.y, bounds->min.z),    // 3
+//        bounds->max,                                            // 4
+//        Vertex(bounds->min.x, bounds->max.y, bounds->max.z),    // 5
+//        Vertex(bounds->min.x, bounds->min.y, bounds->max.z),    // 6
+//        Vertex(bounds->max.x, bounds->min.y, bounds->max.z)     // 7
+//    }, { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6});
+//
+    RenderableObject *boundsRenderable = new RenderableObject(boundsMesh);
+    boundsRenderable->setRenderingStyle(GL_LINES);
+    boundsRenderable->color = Point(0, 1, 0);
     
-    childrens.push_back(boundsMesh);
+    childrens.push_back(boundsRenderable);
 }
 
 
@@ -388,12 +300,12 @@ void Mesh::showBounds() {
 
 // MARK: - BoundingBox
 
-Vector3D BoundingBox::center() const {
+Point BoundingBox::center() {
     return (min + max) / 2;
 }
 
-float BoundingBox::diagonal() const {
-    return (max - min).magnitude();
+float BoundingBox::diagonal() {
+    return (max - min).norm();
 }
 
 
@@ -451,7 +363,7 @@ void OrbitControls::mouseMove(int screenX, int screenY) {
     float viewX = (float)screenX / (float)Renderer::camera.getWidth();
     float viewY = (float)screenY / (float)Renderer::camera.getHeight();
     
-    Vector3D rotation = Vector3D((viewY * 2) - 1, (viewX * 2) - 1, 0);
+    Point rotation = Point((viewY * 2) - 1, (viewX * 2) - 1, 0);
     Renderer::camera.rotation = rotation * 180;
 }
 
@@ -464,11 +376,11 @@ void OrbitControls::init() {
 // MARK: - Object
 
 void Object::render() const {
-    glTranslatef(position.x, position.y, position.z);
-    glRotatef(rotation.x, 1, 0, 0);
-    glRotatef(rotation.y, 0, 1, 0);
-    glRotatef(rotation.z, 0, 0, 1);
-    glScaled(scale.x, scale.y, scale.z);
+    glTranslatef(position.v[0], position.v[1], position.v[2]);
+    glRotatef(rotation.v[0], 1, 0, 0);
+    glRotatef(rotation.v[1], 0, 1, 0);
+    glRotatef(rotation.v[2], 0, 0, 1);
+    glScaled(scale.v[0], scale.v[1], scale.v[2]);
     
     for (Object *child: childrens) {
         glPushMatrix();
@@ -494,49 +406,4 @@ void Camera::resize(int newWidth, int newHeight){
     width = newWidth;
     height = newHeight;
     updateView();
-}
-
-
-
-
-// MARK: - Vector 3D
-
-float Vector3D::magnitudeSquared() const {
-    return x * x + y * y + z * z;
-}
-
-float Vector3D::magnitude() const {
-    return std::sqrtf(magnitudeSquared());
-}
-
-float* Vector3D::data() {
-    return &x;
-}
-
-inline Vector3D Vector3D::operator +(Vector3D v) const  {
-    return Vector3D(x + v.x, y + v.y, z + v.z);
-}
-
-inline void Vector3D::operator +=(Vector3D v) {
-    x += v.x; y += v.y; z += v.z;
-}
-
-inline Vector3D Vector3D::operator -(Vector3D v) const {
-    return Vector3D(x - v.x, y - v.y, z - v.z);
-}
-
-Vector3D Vector3D::operator +(float s) const {
-    return Vector3D(x + s, y + s, z + s);
-}
-
-Vector3D Vector3D::operator -(float s) const {
-    return Vector3D(x - s, y - s, z - s);
-}
-
-Vector3D Vector3D::operator *(float s) const {
-    return Vector3D(x * s, y * s, z * s);
-}
-
-Vector3D Vector3D::operator /(float s) const {
-    return Vector3D(x / s, y / s, z / s);
 }
