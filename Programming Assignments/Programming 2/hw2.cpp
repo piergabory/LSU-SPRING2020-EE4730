@@ -51,21 +51,6 @@
 
 // MARK: - CLASS HEADERS -
 
-/// Box aligned to the space axes.
-/// Represented by two opposites points, min and max
-/// - Max is the ccrner  facing direction (+X, +Y, +Z)
-/// - Min is the corner facing direction (-X, -Y, -Z)
-struct BoundingBox {
-    Point min;
-    Point max;
-    BoundingBox(Point min, Point max): min(min), max(max) {}
-    
-    inline Point center();
-    inline float diagonal();
-};
-
-
-
 /// Base Object Class
 /// Object tree in the scene
 /// Inherited by the camera, meshes, and eventually lights..
@@ -78,7 +63,25 @@ struct Object {
     virtual void render() const;
 };
 
+/// Box aligned to the space axes.
+/// Represented by two opposites points, min and max
+/// - Max is the ccrner  facing direction (+X, +Y, +Z)
+/// - Min is the corner facing direction (-X, -Y, -Z)
+class BoundingBox: public Object {
+public:
+    Point min;
+    Point max;
+    BoundingBox(Point min, Point max): min(min), max(max) {}
+    
+public:
+    inline Point center();
+    inline float diagonal();
+    void render() const override;
+};
 
+struct Origin: public Object {
+    void render() const override;
+};
 
 /// RenderableObject Class
 /// Provides bounding box containing all the vertices
@@ -168,8 +171,8 @@ int main(int argc, char** argv) {
     Object *scene = new Object();
     Renderer::camera.childrens.push_back(scene);
     
-//    Object *origin = makeOrigin();
-//    scene->childrens.push_back(origin);
+    Origin origin;
+    scene->childrens.push_back(&origin);
     
     RenderableObject *lastAddedObject = nullptr;
     for (int arg = 1; arg < argc; arg ++) {
@@ -226,8 +229,12 @@ void RenderableObject::render() const  {
     Object::render();
     glBegin(type);
     glColor3dv(color.v);
-    for (MeshVertexIterator it(mesh); !it.end(); ++it) {
-        glVertex3dv((*it)->point().v);
+
+    // iterate through faces, then vertices
+    for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+        for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
+            glVertex3dv((*vertexIt)->point().v);
+        }
     }
     glEnd();
 }
@@ -237,8 +244,8 @@ void RenderableObject::render() const  {
 void RenderableObject::computeBoundingBox() {
     MeshVertexIterator it(mesh);
     
-    Point min = it.value()->point();
-    Point max = it.value()->point();
+    Point min = (*it)->point();
+    Point max = (*it)->point();
     
     for (MeshVertexIterator it(mesh); !it.end(); ++it) {
         min.v[0] = std::min(min.v[0], (*it)->point().v[0]);
@@ -274,24 +281,7 @@ const BoundingBox& RenderableObject::getBounds() {
 
 void RenderableObject::showBounds() {
     if (bounds == nullptr) { computeBoundingBox(); }
-    Mesh *boundsMesh = new Mesh();
-    
-    //{
-//        bounds->min,                                            // 0
-//        Vertex(bounds->max.x, bounds->min.y, bounds->min.z),    // 1
-//        Vertex(bounds->max.x, bounds->max.y, bounds->min.z),    // 2
-//        Vertex(bounds->min.x, bounds->max.y, bounds->min.z),    // 3
-//        bounds->max,                                            // 4
-//        Vertex(bounds->min.x, bounds->max.y, bounds->max.z),    // 5
-//        Vertex(bounds->min.x, bounds->min.y, bounds->max.z),    // 6
-//        Vertex(bounds->max.x, bounds->min.y, bounds->max.z)     // 7
-//    }, { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6});
-//
-    RenderableObject *boundsRenderable = new RenderableObject(boundsMesh);
-    boundsRenderable->setRenderingStyle(GL_LINES);
-    boundsRenderable->color = Point(0, 1, 0);
-    
-    childrens.push_back(boundsRenderable);
+    childrens.push_back(bounds);
 }
 
 
@@ -306,6 +296,49 @@ Point BoundingBox::center() {
 
 float BoundingBox::diagonal() {
     return (max - min).norm();
+}
+
+void BoundingBox::render() const {
+    Point boxVertices[8] {
+        min,                                    // 0
+        Point(max.v[0], min.v[1], min.v[2]),    // 1
+        Point(max.v[0], max.v[1], min.v[2]),    // 2
+        Point(min.v[0], max.v[1], min.v[2]),    // 3
+        max,                                    // 4
+        Point(min.v[0], max.v[1], max.v[2]),    // 5
+        Point(min.v[0], min.v[1], max.v[2]),    // 6
+        Point(max.v[0], min.v[1], max.v[2])     // 7
+    };
+    
+    int boxIndices[36] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6};
+
+    glBegin(GL_LINES);
+    glColor3d(0, 1, 0);
+    for (int i = 0; i < 36; i++) {
+        glVertex3dv(boxVertices[boxIndices[i]].v);
+    }
+    glEnd();
+}
+
+
+// MARK: - Origin
+
+void Origin::render() const {
+    glBegin(GL_LINES);
+    
+    glColor3d(1, 0, 0);
+    glVertex3d(1, 0, 0);
+    glVertex3d(0, 0, 0);
+    
+    glColor3d(0, 1, 0);
+    glVertex3d(0, 1, 0);
+    glVertex3d(0, 0, 0);
+    
+    glColor3d(0, 0, 1);
+    glVertex3d(0, 0, 1);
+    glVertex3d(0, 0, 0);
+    
+    glEnd();
 }
 
 
