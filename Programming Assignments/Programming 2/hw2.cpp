@@ -34,9 +34,6 @@
 #endif
 
 #include <vector>
-#include <string>
-#include <fstream>
-#include <iostream>
 #include <algorithm>
 #include <cmath>
 
@@ -83,7 +80,7 @@ struct Origin: public Object {
     void render() const override;
 };
 
-/// RenderableObject Class
+/// Object with a mesh
 /// Provides bounding box containing all the vertices
 class RenderableObject: public Object {
 
@@ -91,12 +88,17 @@ private:
     GLenum type = GL_TRIANGLES;
     Mesh *mesh;
     BoundingBox *bounds = nullptr;
+    std::vector<Point> faceNormals;
+    
+    
     void computeBoundingBox();
+    void computeFaceNormals();
+    void computeVertexNormals();
     
 public:
     Point color = Point(1, 1, 1);
     
-    RenderableObject(Mesh *mesh): mesh(mesh) {}
+    RenderableObject(Mesh *mesh);
     ~RenderableObject();
     
     inline void setRenderingStyle(GLenum mode);
@@ -203,7 +205,7 @@ int main(int argc, char** argv) {
     }
     
     Renderer::init(argc, argv);
-    Renderer::createWindow(800, 800, "Prog1");
+    Renderer::createWindow(800, 800, "Prog2");
     OrbitControls::init();
     Renderer::start();
     
@@ -223,18 +225,30 @@ int main(int argc, char** argv) {
 
 // MARK: - RenderableObject
 
+RenderableObject::RenderableObject(Mesh *mesh): mesh(mesh), faceNormals(0) {
+    computeBoundingBox();
+    computeFaceNormals();
+    computeVertexNormals();
+}
+
+
 // MARK: RenderableObject Render
 
 void RenderableObject::render() const  {
     Object::render();
+    glEnable(GL_LIGHTING);
     glBegin(type);
-    glColor3dv(color.v);
+    
+    int faceIndex = 0;
 
     // iterate through faces, then vertices
     for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+        Point normal = faceNormals[faceIndex];
         for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
+            glNormal3dv(normal.v);
             glVertex3dv((*vertexIt)->point().v);
         }
+        faceIndex++;
     }
     glEnd();
 }
@@ -285,7 +299,43 @@ void RenderableObject::showBounds() {
 }
 
 
+void RenderableObject::computeFaceNormals() {
+    faceNormals.empty();
+    
+    for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+        
+        FaceVertexIterator vertexIt(*faceIt);
+        
+        // collect face vectors
+        Point v0, v1, v2;
+        v0 = (*vertexIt)->point();
+        ++vertexIt;
+        v1 = (*vertexIt)->point();
+        ++vertexIt;
+        v2 = (*vertexIt)->point();
+        
+        // compute halfedge uv vectors
+        Point u = v0 - v1;
+        Point v = v0 - v2;
+        
+        // cross product uv
+        Point normal(
+                     u.v[1] * v.v[2] - u.v[2] * v.v[1],
+                     u.v[0] * v.v[2] - u.v[2] * v.v[0],
+                     u.v[1] * v.v[0] - u.v[0] * v.v[1]);
+        
+        // normalize
+        normal = Point(normal.v[0] / normal.norm(), normal.v[1] / normal.norm(), normal.v[2] / normal.norm());
+        
+        // store normal
+        faceNormals.push_back(normal);
+    }
+}
 
+
+void RenderableObject::computeVertexNormals() {
+    
+}
 
 
 // MARK: - BoundingBox
@@ -312,10 +362,12 @@ void BoundingBox::render() const {
     
     int boxIndices[36] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6};
 
+    glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
     glColor3d(0, 1, 0);
     for (int i = 0; i < 36; i++) {
         glVertex3dv(boxVertices[boxIndices[i]].v);
+        
     }
     glEnd();
 }
@@ -324,6 +376,7 @@ void BoundingBox::render() const {
 // MARK: - Origin
 
 void Origin::render() const {
+    glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
     
     glColor3d(1, 0, 0);
@@ -359,6 +412,10 @@ void Renderer::createWindow(int width, int height, const char title[]) {
     
     glClearColor(0, 0, 0, 1);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    float position[4] = { -10, -10, -10, 1 };
+    glLightfv(GL_LIGHT0, GL_POSITION, position);
     handleResize(width, height);
 }
 
