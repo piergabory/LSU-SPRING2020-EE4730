@@ -89,6 +89,7 @@ private:
     Mesh *mesh;
     BoundingBox *bounds = nullptr;
     std::vector<Point> faceNormals;
+    std::vector<Point> vertexNormals;
     
     
     void computeBoundingBox();
@@ -238,22 +239,16 @@ void RenderableObject::render() const  {
     Object::render();
     glEnable(GL_LIGHTING);
     glBegin(type);
-    
-    int faceIndex = 0;
 
     // iterate through faces, then vertices
     for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-        Point normal = faceNormals[faceIndex];
         for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
-            glNormal3dv(normal.v);
+            glNormal3dv(vertexNormals[(*vertexIt)->index()].v);
             glVertex3dv((*vertexIt)->point().v);
         }
-        faceIndex++;
     }
     glEnd();
 }
-
-// MARK: Compute Bounding Box
 
 void RenderableObject::computeBoundingBox() {
     MeshVertexIterator it(mesh);
@@ -325,7 +320,7 @@ void RenderableObject::computeFaceNormals() {
                      u.v[1] * v.v[0] - u.v[0] * v.v[1]);
         
         // normalize
-        normal = Point(normal.v[0] / normal.norm(), normal.v[1] / normal.norm(), normal.v[2] / normal.norm());
+        normal /= normal.norm();
         
         // store normal
         faceNormals.push_back(normal);
@@ -334,6 +329,23 @@ void RenderableObject::computeFaceNormals() {
 
 
 void RenderableObject::computeVertexNormals() {
+    if (faceNormals.empty()) { return; }
+    int faceIndex = 0;
+    
+    vertexNormals.clear();
+    vertexNormals.assign(mesh->numVertices(), Point(0,0,0));
+    
+    for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+        for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
+            vertexNormals[(*vertexIt)->index()] += faceNormals[faceIndex];
+        }
+        faceIndex ++;
+    }
+    
+    // normalise
+    for (Point& normal: vertexNormals) {
+        normal /= normal.norm();
+    }
     
 }
 
