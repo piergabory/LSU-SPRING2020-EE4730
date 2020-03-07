@@ -83,14 +83,14 @@ struct BoundingBox {
 
 
 
-/// Base Object Class
-/// Object tree in the scene
+/// Base Node Class
+/// Node tree in the scene
 /// Inherited by the camera, meshes, and eventually lights..
-struct Object {
+struct Node {
     Vector3D position;
     Vector3D rotation;
     Vector3D scale = Vector3D(1, 1, 1);
-    std::vector<Object *> childrens;
+    std::vector<Node *> childrens;
     
     virtual void render() const;
 };
@@ -100,7 +100,7 @@ struct Object {
 /// Mesh Class
 /// Collection of faces
 /// Provides bounding box containing all the vertices
-class Mesh: public Object {
+class Mesh: public Node {
 typedef Vector3D Vertex;
 private:
     GLenum type = GL_TRIANGLES;
@@ -128,7 +128,7 @@ public:
 
 /// Point of view of the scene
 /// Defines and updates the matrix projection
-class Camera: public Object {
+class Camera: public Node {
 private:
     float fieldOfView = 45.0f;
     int width = 400;
@@ -184,7 +184,7 @@ public:
 
 
 /// Factory function, generates an origin axis mesh object.
-Object* makeOrigin() {
+Node* makeOrigin() {
     Mesh *x, *y, *z;
     x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 }); // Red X
     y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 }); // Green Y
@@ -198,7 +198,7 @@ Object* makeOrigin() {
     y->setRenderingStyle(GL_LINES);
     z->setRenderingStyle(GL_LINES);
     
-    Object *origin = new Object();
+    Node *origin = new Node();
     
     origin->childrens.push_back(x);
     origin->childrens.push_back(y);
@@ -215,10 +215,10 @@ Object* makeOrigin() {
 
 int main(int argc, char** argv) {
     
-    Object *scene = new Object();
+    Node *scene = new Node();
     Renderer::camera.childrens.push_back(scene);
     
-    Object *origin = makeOrigin();
+    Node *origin = makeOrigin();
     scene->childrens.push_back(origin);
     
     Mesh *lastmesh = nullptr;
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
 // MARK: Mesh Render
 
 void Mesh::render() const  {
-    Object::render();
+    Node::render();
     glBegin(type);
     glColor3f(color.x, color.y, color.z);
     for (int vertexIndex: faces) {
@@ -351,7 +351,7 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> faces):
 vertices(vertices), faces(faces) {}
 
 Mesh::~Mesh() {
-    for (Object *child: childrens) { delete child; }
+    for (Node *child: childrens) { delete child; }
 }
 
 void Mesh::setRenderingStyle(GLenum mode) {
@@ -461,16 +461,16 @@ void OrbitControls::init() {
 
 
 
-// MARK: - Object
+// MARK: - Node
 
-void Object::render() const {
+void Node::render() const {
     glTranslatef(position.x, position.y, position.z);
     glRotatef(rotation.x, 1, 0, 0);
     glRotatef(rotation.y, 0, 1, 0);
     glRotatef(rotation.z, 0, 0, 1);
     glScaled(scale.x, scale.y, scale.z);
     
-    for (Object *child: childrens) {
+    for (Node *child: childrens) {
         glPushMatrix();
         child->render();
         glPopMatrix();

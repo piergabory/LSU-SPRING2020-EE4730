@@ -46,16 +46,16 @@
 
 
 
-// MARK: - OBJECT
+// MARK: - NODE
 
-/// Base Object Class
-/// Object tree in the scene
+/// Base Node Class
+/// Node tree in the scene
 /// Inherited by the camera, meshes, and eventually lights..
-struct Object {
+struct Node {
     Point position;
     Point rotation;
     Point scale = Point(1, 1, 1);
-    std::vector<Object *> childrens;
+    std::vector<Node *> childrens;
     
     virtual void render() const {
         glTranslatef(position.v[0], position.v[1], position.v[2]);
@@ -64,7 +64,7 @@ struct Object {
         glRotatef(rotation.v[2], 0, 0, 1);
         glScaled(scale.v[0], scale.v[1], scale.v[2]);
         
-        for (Object *child: childrens) {
+        for (Node *child: childrens) {
             glPushMatrix();
             child->render();
             glPopMatrix();
@@ -95,7 +95,7 @@ public:
 
 
 // MARK: - ORIGIN AXIS
-struct Origin: public Object {
+struct Origin final : public Node {
     void render() const override {
         glDisable(GL_LIGHTING);
         glBegin(GL_LINES);
@@ -118,21 +118,62 @@ struct Origin: public Object {
 
 
 
-// MARK: - RENDERABLE OBJECT
+// MARK: - OBJECT
 
-/// Object with a mesh
+/// Node with a mesh
 /// Provides bounding box containing all the vertices
-class RenderableObject: public Object {
+class Object: public Node {
+    
+public:
+    static bool showBoundingBox;
+    static bool showEdgeGraph;
+    static bool showBoundaryEdgeLoops;
+    static bool showGaussianCurvatureHeatMap;
     
 private:
     Mesh *mesh;
     BoundingBox *bounds = nullptr;
     
+    std::vector<double> halfEdgeAngles;
     std::vector<Point> faceNormals;
-    std::vector<double> HalfEdgeAngles;
     std::vector<Point> vertexNormals;
     
+ public:
+    Object(Mesh *mesh): mesh(mesh), faceNormals(0) {
+        computeBoundingBox();
+        computeHalfEdgeAngles();
+        computeFaceNormals();
+        computeVertexNormals();
+    }
     
+    ~Object()  {
+        if (mesh != nullptr) {  delete mesh; }
+    }
+    
+    inline const BoundingBox& getBounds() {
+        if (bounds == nullptr) { computeBoundingBox(); }
+        return *bounds;
+    }
+    
+    void render() const override  {
+        Node::render();
+        glEnable(GL_LIGHTING);
+        glBegin(GL_TRIANGLES);
+        
+        // iterate through faces, then vertices
+        for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+            for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
+                glNormal3dv(vertexNormals[(*vertexIt)->index()].v);
+                glVertex3dv((*vertexIt)->point().v);
+            }
+        }
+        glEnd();
+        
+        if (showBoundingBox) renderBoundingBox();
+    }
+    
+    
+private:
     void computeBoundingBox() {
         MeshVertexIterator it(mesh);
         
@@ -152,14 +193,27 @@ private:
         bounds = new BoundingBox(min, max);
     }
     
+    void computeHalfEdgeAngles() {
+        halfEdgeAngles.empty();
+        halfEdgeAngles.resize(mesh->numFaces() * 3);
+        
+        for (MeshHalfedgeIterator heit(mesh); !heit.end(); ++heit) {
+            Halfedge *he = (*heit);
+            Point u = he->target()->point() - he->source()->point();
+            he = he->ccw_rotate_about_source();
+            Point v = he->target()->point() - he->source()->point();
+            
+            halfEdgeAngles[he->index()] = acos((u * v) / (u.norm() * v.norm()));
+        }
+    }
+    
     void computeFaceNormals()  {
         faceNormals.empty();
+        faceNormals.resize(mesh->numFaces());
         
         for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-            
+            // collect face points
             FaceVertexIterator vertexIt(*faceIt);
-            
-            // collect face vectors
             Point v0, v1, v2;
             v0 = (*vertexIt)->point();
             ++vertexIt;
@@ -168,42 +222,30 @@ private:
             v2 = (*vertexIt)->point();
             
             // compute halfedge uv vectors
-            Point u = v0 - v1;
-            Point v = v0 - v2;
+            Point u = v1 - v0;
+            Point v = v2 - v0;
             
-            // cross product uv
-            Point normal(
-                         u.v[1] * v.v[2] - u.v[2] * v.v[1],
-                         u.v[0] * v.v[2] - u.v[2] * v.v[0],
-                         u.v[1] * v.v[0] - u.v[0] * v.v[1]);
-            
-            // normalize
-            normal /= normal.norm();
-            
-            // store normal
-            faceNormals.push_back(normal);
+            Point normal = v ^ u;                      // cross product uv
+            normal /= normal.norm();                   // normalize
+            faceNormals[(*faceIt)->index()] = normal;  // memorize
         }
     }
     
     void computeVertexNormals() {
-        if (faceNormals.empty()) { return; }
-        int faceIndex = 0;
-        
         vertexNormals.clear();
-        vertexNormals.assign(mesh->numVertices(), Point(0,0,0));
+        vertexNormals.resize(mesh->numVertices());
         
-        for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-            for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
-                vertexNormals[(*vertexIt)->index()] += faceNormals[faceIndex];
+        for (MeshVertexIterator veit(mesh); !veit.end(); ++veit) {
+            Point normal(0,0,0);
+            
+            for (VertexOutHalfedgeIterator heoit(*veit); !heoit.end(); ++heoit) {
+                Point weightedNormal = faceNormals[(*heoit)->face()->index()] * halfEdgeAngles[(*heoit)->index()];
+                normal += weightedNormal;
             }
-            faceIndex ++;
+            
+            normal /= normal.norm();                  // normalise
+            vertexNormals[(*veit)->index()] = normal; // memorise
         }
-        
-        // normalise
-        for (Point& normal: vertexNormals) {
-            normal /= normal.norm();
-        }
-        
     }
     
     void renderBoundingBox() const {
@@ -232,47 +274,19 @@ private:
         }
         glEnd();
     }
-    
-public:
-    
-    RenderableObject(Mesh *mesh): mesh(mesh), faceNormals(0) {
-        computeBoundingBox();
-        computeFaceNormals();
-        computeVertexNormals();
-    }
-    
-    ~RenderableObject()  {
-        if (mesh != nullptr) {  delete mesh; }
-    }
-    
-    inline const BoundingBox& getBounds() {
-        if (bounds == nullptr) { computeBoundingBox(); }
-        return *bounds;
-    }
-    
-    void render() const override  {
-        Object::render();
-        glEnable(GL_LIGHTING);
-        glBegin(GL_TRIANGLES);
-        
-        // iterate through faces, then vertices
-        for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-            for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
-                glNormal3dv(vertexNormals[(*vertexIt)->index()].v);
-                glVertex3dv((*vertexIt)->point().v);
-            }
-        }
-        glEnd();
-    }
 };
 
+bool Object::showBoundingBox = false;
+bool Object::showEdgeGraph = false;
+bool Object::showBoundaryEdgeLoops = false;
+bool Object::showGaussianCurvatureHeatMap = false;
 
 
 // MARK: - CAMERA
 
 /// Point of view of the scene
 /// Defines and updates the matrix projection
-class Camera: public Object {
+class Camera final : public Node {
 private:
     float fieldOfView = 45.0f;
     int width = 400;
@@ -310,7 +324,7 @@ public:
 /// finally `start()` launches the render loop.
 ///
 /// The camera property is the point of view and root of the scene graph.
-class Renderer {
+class Renderer final {
 public:
     static Camera camera;
     
@@ -353,12 +367,13 @@ public:
     }
     
     static void start() {
-        glutDisplayFunc(Renderer::draw);
-        glutReshapeFunc(Renderer::handleResize);
-        glutTimerFunc(25, Renderer::update, 0); //Add a timer
+        glutDisplayFunc(draw);
+        glutReshapeFunc(handleResize);
+        glutTimerFunc(25, update, 0); //Add a timer
         glutMainLoop();
     }
 };
+
 // static camera declaration
 Camera Renderer::camera;
 
@@ -369,7 +384,7 @@ Camera Renderer::camera;
 /// Simple and classic orbital camera control scheme using mouse input.
 /// Takes the Renderer::camera and rotates it around the (0,0,0) scene coordinates.
 /// The camera up direction is always alined to the Z axis
-class OrbitControls {
+class OrbitControls final {
 private:
     static void mouseMove(int screenX, int screenY) {
         float viewX = (float)screenX / (float)Renderer::camera.getWidth();
@@ -380,29 +395,53 @@ private:
     }
 public:
     static void init() {
-        glutMotionFunc(OrbitControls::mouseMove);
+        glutMotionFunc(mouseMove);
     }
 };
 
+
+// MARK: - KEYBOARD HANDLER
+
+/// Static class, listens for keyboard input, controlling display modes of Object
+
+class KeyboardHandler final {
+private:
+    static void handleKeyUp(unsigned char keyCode, int screenX, int screenY) {
+        switch (keyCode) {
+            // switch display options
+            case 's': Object::showBoundingBox ^= true;              break;
+            case 'e': Object::showEdgeGraph ^= true;                break;
+            case 'b': Object::showBoundaryEdgeLoops ^= true;        break;
+            case 'k': Object::showGaussianCurvatureHeatMap ^= true; break;
+                
+            default: break;
+        }
+    }
+    
+public:
+    static void init() {
+        glutKeyboardUpFunc(handleKeyUp);
+    }
+};
 
 
 // MARK: - MAIN -
 
 int main(int argc, char** argv) {
     
-    Object *scene = new Object();
+    Node *scene = new Node();
     Renderer::camera.childrens.push_back(scene);
     
     Origin origin;
     scene->childrens.push_back(&origin);
     
-    RenderableObject *lastAddedObject = nullptr;
+    Object *lastAddedObject = nullptr;
     for (int arg = 1; arg < argc; arg ++) {
         
         Mesh *mesh = new Mesh();
         // try to load obj, and push into the scene
         if (mesh->readOBJFile(argv[arg])) {
-            RenderableObject *object = new RenderableObject(mesh);
+            Object *object = new Object(mesh);
             scene->childrens.push_back(object);
             lastAddedObject = object;
         }
@@ -425,6 +464,7 @@ int main(int argc, char** argv) {
     Renderer::init(argc, argv);
     Renderer::createWindow(800, 800, "Prog2");
     OrbitControls::init();
+    KeyboardHandler::init();
     Renderer::start();
     
     return 0;

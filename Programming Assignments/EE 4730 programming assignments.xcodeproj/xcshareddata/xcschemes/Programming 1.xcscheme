@@ -36,7 +36,7 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
       useCustomWorkingDirectory = "YES"
-      customWorkingDirectory = "/Users/piergabory/Developer/LSU Spring 2020/EE4730/Programming 1/EE 4730 programming 1/Programming 1"
+      customWorkingDirectory = "/Users/piergabory/Developer/EE4730/Programming Assignments/OBJMeshes"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"

@@ -44,7 +44,7 @@
 
 /* Begin PBXFileReference section */
 		D43767A7241038CF00AF87D0 /* hw2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hw2.cpp; sourceTree = "<group>"; };
-		D43767A8241038D800AF87D0 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = David.obj; sourceTree = "<group>"; };
+		D43767A8241038D800AF87D0 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; name = David.obj; path = "../Programming 2/David.obj"; sourceTree = "<group>"; };
 		D43767B5241038E300AF87D0 /* Programming 2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Programming 2"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D43767B624103A8400AF87D0 /* HW2_Description.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = HW2_Description.pdf; sourceTree = "<group>"; };
 		D43767BC24103BA100AF87D0 /* Ex3_MeshLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Ex3_MeshLib.cpp; sourceTree = "<group>"; };
@@ -108,7 +108,6 @@
 				D43767BB24103BA100AF87D0 /* ExampleCodes_using_MeshLib */,
 				D43767C124103BA100AF87D0 /* MeshLib_Core */,
 				D43767B624103A8400AF87D0 /* HW2_Description.pdf */,
-				D43767A8241038D800AF87D0 /* David.obj */,
 				D43767A7241038CF00AF87D0 /* hw2.cpp */,
 			);
 			path = "Programming 2";
@@ -142,9 +141,24 @@
 			path = MeshLib_Core;
 			sourceTree = "<group>";
 		};
+		D4985ECC241456E200A56C4A /* OBJMeshes */ = {
+			isa = PBXGroup;
+			children = (
+				D43767A8241038D800AF87D0 /* David.obj */,
+				D4E8125F23EA101900B90200 /* bunny.obj */,
+				D4E8126023EA101900B90200 /* camel.obj */,
+				D4E8126123EA101900B90200 /* David.obj */,
+				D4E8126223EA101900B90200 /* horse.obj */,
+				D4E8126323EA101900B90200 /* Susan.obj */,
+				D4E8126423EA102400B90200 /* testOBJ.obj */,
+			);
+			path = OBJMeshes;
+			sourceTree = "<group>";
+		};
 		D4E8124C23EA05FE00B90200 = {
 			isa = PBXGroup;
 			children = (
+				D4985ECC241456E200A56C4A /* OBJMeshes */,
 				D43767A6241038C800AF87D0 /* Programming 2 */,
 				D4E8125723EA05FE00B90200 /* Programming 1 */,
 				D4E8125623EA05FE00B90200 /* Products */,
@@ -165,12 +179,6 @@
 			isa = PBXGroup;
 			children = (
 				D4C301AF23EB5619005380E3 /* HW1.pdf */,
-				D4E8125F23EA101900B90200 /* bunny.obj */,
-				D4E8126023EA101900B90200 /* camel.obj */,
-				D4E8126123EA101900B90200 /* David.obj */,
-				D4E8126223EA101900B90200 /* horse.obj */,
-				D4E8126323EA101900B90200 /* Susan.obj */,
-				D4E8126423EA102400B90200 /* testOBJ.obj */,
 				D4E8125823EA05FE00B90200 /* hw1.cpp */,
 			);
 			path = "Programming 1";
