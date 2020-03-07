@@ -36,6 +36,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
 #include "Vertex.h"
 #include "Point.h"
@@ -137,6 +138,7 @@ private:
     std::vector<double> halfEdgeAngles;
     std::vector<Point> faceNormals;
     std::vector<Point> vertexNormals;
+    std::vector<std::vector<Vertex *>> boundaryEdgeLoops;
     
  public:
     Object(Mesh *mesh): mesh(mesh), faceNormals(0) {
@@ -144,6 +146,9 @@ private:
         computeHalfEdgeAngles();
         computeFaceNormals();
         computeVertexNormals();
+        computeBoundaryEdgeLoops();
+        
+        std::cout << "Found " << boundaryEdgeLoops.size() << " boundary edge loops.";
     }
     
     ~Object()  {
@@ -170,6 +175,7 @@ private:
         glEnd();
         
         if (showBoundingBox) renderBoundingBox();
+        if (showEdgeGraph) renderEdgeConnectivity();
     }
     
     
@@ -201,6 +207,7 @@ private:
             Halfedge *he = (*heit);
             Point u = he->target()->point() - he->source()->point();
             he = he->ccw_rotate_about_source();
+            if (!he) continue; // 
             Point v = he->target()->point() - he->source()->point();
             
             halfEdgeAngles[he->index()] = acos((u * v) / (u.norm() * v.norm()));
@@ -225,7 +232,7 @@ private:
             Point u = v1 - v0;
             Point v = v2 - v0;
             
-            Point normal = v ^ u;                      // cross product uv
+            Point normal = u ^ v;                      // cross product uv
             normal /= normal.norm();                   // normalize
             faceNormals[(*faceIt)->index()] = normal;  // memorize
         }
@@ -246,6 +253,10 @@ private:
             normal /= normal.norm();                  // normalise
             vertexNormals[(*veit)->index()] = normal; // memorise
         }
+    }
+    
+    void computeBoundaryEdgeLoops() {
+      
     }
     
     void renderBoundingBox() const {
@@ -271,6 +282,23 @@ private:
         for (int i = 0; i < 36; i++) {
             glVertex3dv(boxVertices[boxIndices[i]].v);
             
+        }
+        glEnd();
+    }
+    
+    void renderEdgeConnectivity() const {
+        glDisable(GL_LIGHTING);
+        glBegin(GL_LINES);
+        for (MeshEdgeIterator eit(mesh); !eit.end(); ++eit) {
+            Vertex *source = (*eit)->he(0)->source();
+            Vertex *target = (*eit)->he(0)->target();
+            
+            Point v0 = vertexNormals[source->index()] * 0.003 + source->point();
+            Point v1 = vertexNormals[target->index()] * 0.003 + target->point();
+    
+            glColor3f(0, 0, 1);
+            glVertex3dv(v0.v);
+            glVertex3dv(v1.v);
         }
         glEnd();
     }
@@ -361,7 +389,7 @@ public:
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
-        float position[4] = { -10, -10, -10, 1 };
+        float position[4] = { 10, 10, 10, 1 };
         glLightfv(GL_LIGHT0, GL_POSITION, position);
         handleResize(width, height);
     }
