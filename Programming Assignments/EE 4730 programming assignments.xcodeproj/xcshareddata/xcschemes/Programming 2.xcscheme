@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-               BuildableName = "Programming 1"
-               BlueprintName = "Programming 1"
+               BlueprintIdentifier = "D43767A9241038E300AF87D0"
+               BuildableName = "Programming 2"
+               BlueprintName = "Programming 2"
                ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -45,23 +45,27 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-            BuildableName = "Programming 1"
-            BlueprintName = "Programming 1"
+            BlueprintIdentifier = "D43767A9241038E300AF87D0"
+            BuildableName = "Programming 2"
+            BlueprintName = "Programming 2"
             ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "camel.obj"
+            argument = "David.obj"
+            isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "testOBJ.txt"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "Susan.obj"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "bunny.obj"
-            isEnabled = "YES">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "David.obj"
             isEnabled = "NO">
          </CommandLineArgument>
       </CommandLineArguments>
@@ -76,9 +80,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D4E8125423EA05FE00B90200"
-            BuildableName = "Programming 1"
-            BlueprintName = "Programming 1"
+            BlueprintIdentifier = "D43767A9241038E300AF87D0"
+            BuildableName = "Programming 2"
+            BlueprintName = "Programming 2"
             ReferencedContainer = "container:EE 4730 programming assignments.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

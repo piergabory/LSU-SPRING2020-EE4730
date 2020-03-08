@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D43767AB241038E300AF87D0 /* hw1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D4E8125823EA05FE00B90200 /* hw1.cpp */; };
 		D43767AD241038E300AF87D0 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126C23EA232F00B90200 /* Cocoa.framework */; };
 		D43767AE241038E300AF87D0 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126823EA232400B90200 /* GLKit.framework */; };
 		D43767AF241038E300AF87D0 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126623EA231F00B90200 /* GLUT.framework */; };
 		D43767B0241038E300AF87D0 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126A23EA232900B90200 /* OpenGL.framework */; };
-		D4E8125923EA05FE00B90200 /* hw1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D4E8125823EA05FE00B90200 /* hw1.cpp */; };
+		D43767B924103AE700AF87D0 /* hw1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D4E8125823EA05FE00B90200 /* hw1.cpp */; };
+		D43767CE24103BA100AF87D0 /* Mesh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D43767C324103BA100AF87D0 /* Mesh.cpp */; };
+		D43767CF24103BA100AF87D0 /* Vertex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D43767C924103BA100AF87D0 /* Vertex.cpp */; };
+		D43767D124103EE100AF87D0 /* hw2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D43767A7241038CF00AF87D0 /* hw2.cpp */; };
 		D4E8126723EA231F00B90200 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126623EA231F00B90200 /* GLUT.framework */; };
 		D4E8126923EA232400B90200 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126823EA232400B90200 /* GLKit.framework */; };
 		D4E8126B23EA232900B90200 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4E8126A23EA232900B90200 /* OpenGL.framework */; };
@@ -42,8 +44,23 @@
 
 /* Begin PBXFileReference section */
 		D43767A7241038CF00AF87D0 /* hw2.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hw2.cpp; sourceTree = "<group>"; };
-		D43767A8241038D800AF87D0 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = David.obj; sourceTree = "<group>"; };
+		D43767A8241038D800AF87D0 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; name = David.obj; path = "../Programming 2/David.obj"; sourceTree = "<group>"; };
 		D43767B5241038E300AF87D0 /* Programming 2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Programming 2"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D43767B624103A8400AF87D0 /* HW2_Description.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = HW2_Description.pdf; sourceTree = "<group>"; };
+		D43767BC24103BA100AF87D0 /* Ex3_MeshLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Ex3_MeshLib.cpp; sourceTree = "<group>"; };
+		D43767BD24103BA100AF87D0 /* Mesh_Net.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Mesh_Net.obj; sourceTree = "<group>"; };
+		D43767BE24103BA100AF87D0 /* Ex1_MeshLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Ex1_MeshLib.cpp; sourceTree = "<group>"; };
+		D43767BF24103BA100AF87D0 /* ReadMe.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ReadMe.txt; sourceTree = "<group>"; };
+		D43767C024103BA100AF87D0 /* Ex2_MeshLib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Ex2_MeshLib.cpp; sourceTree = "<group>"; };
+		D43767C224103BA100AF87D0 /* Vertex.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Vertex.h; sourceTree = "<group>"; };
+		D43767C324103BA100AF87D0 /* Mesh.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mesh.cpp; sourceTree = "<group>"; };
+		D43767C424103BA100AF87D0 /* Edge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Edge.h; sourceTree = "<group>"; };
+		D43767C524103BA100AF87D0 /* Point.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Point.h; sourceTree = "<group>"; };
+		D43767C624103BA100AF87D0 /* Mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mesh.h; sourceTree = "<group>"; };
+		D43767C724103BA100AF87D0 /* Halfedge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Halfedge.h; sourceTree = "<group>"; };
+		D43767C824103BA100AF87D0 /* Iterators.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Iterators.h; sourceTree = "<group>"; };
+		D43767C924103BA100AF87D0 /* Vertex.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Vertex.cpp; sourceTree = "<group>"; };
+		D43767CA24103BA100AF87D0 /* Face.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Face.h; sourceTree = "<group>"; };
 		D4C301AF23EB5619005380E3 /* HW1.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; path = HW1.pdf; sourceTree = "<group>"; };
 		D4E8125523EA05FE00B90200 /* Programming 1 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "Programming 1"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D4E8125823EA05FE00B90200 /* hw1.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hw1.cpp; sourceTree = "<group>"; };
@@ -52,7 +69,7 @@
 		D4E8126123EA101900B90200 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = David.obj; sourceTree = "<group>"; };
 		D4E8126223EA101900B90200 /* horse.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = horse.obj; sourceTree = "<group>"; };
 		D4E8126323EA101900B90200 /* Susan.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = Susan.obj; sourceTree = "<group>"; };
-		D4E8126423EA102400B90200 /* testOBJ.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = testOBJ.obj; sourceTree = "<group>"; };
+		D4E8126423EA102400B90200 /* testOBJ.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = testOBJ.txt; sourceTree = "<group>"; };
 		D4E8126623EA231F00B90200 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		D4E8126823EA232400B90200 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
 		D4E8126A23EA232900B90200 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
@@ -88,15 +105,60 @@
 		D43767A6241038C800AF87D0 /* Programming 2 */ = {
 			isa = PBXGroup;
 			children = (
-				D43767A8241038D800AF87D0 /* David.obj */,
+				D43767BB24103BA100AF87D0 /* ExampleCodes_using_MeshLib */,
+				D43767C124103BA100AF87D0 /* MeshLib_Core */,
+				D43767B624103A8400AF87D0 /* HW2_Description.pdf */,
 				D43767A7241038CF00AF87D0 /* hw2.cpp */,
 			);
 			path = "Programming 2";
 			sourceTree = "<group>";
 		};
+		D43767BB24103BA100AF87D0 /* ExampleCodes_using_MeshLib */ = {
+			isa = PBXGroup;
+			children = (
+				D43767BE24103BA100AF87D0 /* Ex1_MeshLib.cpp */,
+				D43767C024103BA100AF87D0 /* Ex2_MeshLib.cpp */,
+				D43767BC24103BA100AF87D0 /* Ex3_MeshLib.cpp */,
+				D43767BD24103BA100AF87D0 /* Mesh_Net.obj */,
+				D43767BF24103BA100AF87D0 /* ReadMe.txt */,
+			);
+			path = ExampleCodes_using_MeshLib;
+			sourceTree = "<group>";
+		};
+		D43767C124103BA100AF87D0 /* MeshLib_Core */ = {
+			isa = PBXGroup;
+			children = (
+				D43767C224103BA100AF87D0 /* Vertex.h */,
+				D43767C524103BA100AF87D0 /* Point.h */,
+				D43767C724103BA100AF87D0 /* Halfedge.h */,
+				D43767C424103BA100AF87D0 /* Edge.h */,
+				D43767C624103BA100AF87D0 /* Mesh.h */,
+				D43767C824103BA100AF87D0 /* Iterators.h */,
+				D43767CA24103BA100AF87D0 /* Face.h */,
+				D43767C324103BA100AF87D0 /* Mesh.cpp */,
+				D43767C924103BA100AF87D0 /* Vertex.cpp */,
+			);
+			path = MeshLib_Core;
+			sourceTree = "<group>";
+		};
+		D4985ECC241456E200A56C4A /* OBJMeshes */ = {
+			isa = PBXGroup;
+			children = (
+				D43767A8241038D800AF87D0 /* David.obj */,
+				D4E8125F23EA101900B90200 /* bunny.obj */,
+				D4E8126023EA101900B90200 /* camel.obj */,
+				D4E8126123EA101900B90200 /* David.obj */,
+				D4E8126223EA101900B90200 /* horse.obj */,
+				D4E8126323EA101900B90200 /* Susan.obj */,
+				D4E8126423EA102400B90200 /* testOBJ.txt */,
+			);
+			path = OBJMeshes;
+			sourceTree = "<group>";
+		};
 		D4E8124C23EA05FE00B90200 = {
 			isa = PBXGroup;
 			children = (
+				D4985ECC241456E200A56C4A /* OBJMeshes */,
 				D43767A6241038C800AF87D0 /* Programming 2 */,
 				D4E8125723EA05FE00B90200 /* Programming 1 */,
 				D4E8125623EA05FE00B90200 /* Products */,
@@ -117,12 +179,6 @@
 			isa = PBXGroup;
 			children = (
 				D4C301AF23EB5619005380E3 /* HW1.pdf */,
-				D4E8125F23EA101900B90200 /* bunny.obj */,
-				D4E8126023EA101900B90200 /* camel.obj */,
-				D4E8126123EA101900B90200 /* David.obj */,
-				D4E8126223EA101900B90200 /* horse.obj */,
-				D4E8126323EA101900B90200 /* Susan.obj */,
-				D4E8126423EA102400B90200 /* testOBJ.obj */,
 				D4E8125823EA05FE00B90200 /* hw1.cpp */,
 			);
 			path = "Programming 1";
@@ -214,7 +270,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D43767AB241038E300AF87D0 /* hw1.cpp in Sources */,
+				D43767CF24103BA100AF87D0 /* Vertex.cpp in Sources */,
+				D43767D124103EE100AF87D0 /* hw2.cpp in Sources */,
+				D43767CE24103BA100AF87D0 /* Mesh.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -222,7 +280,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D4E8125923EA05FE00B90200 /* hw1.cpp in Sources */,
+				D43767B924103AE700AF87D0 /* hw1.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

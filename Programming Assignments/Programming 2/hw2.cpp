@@ -34,101 +34,427 @@
 #endif
 
 #include <vector>
-#include <string>
-#include <fstream>
-#include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
+
+#include "Vertex.h"
+#include "Point.h"
+#include "Halfedge.h"
+#include "Edge.h"
+#include "Mesh.h"
+#include "Iterators.h"
 
 
 
+// MARK: - NODE
 
-
-
-
-// MARK: - CLASS HEADERS -
-
-/// Simple vector class with basic arithmetic
-struct Vector3D {
-    float x, y, z;
-    Vector3D(float x = 0, float y = 0, float z = 0): x(x), y(y), z(z) {}
-    inline float magnitudeSquared() const;
-    inline float magnitude() const;
-    inline float* data();
+/// Base Node Class
+/// Node tree in the scene
+/// Inherited by the camera, meshes, and eventually lights..
+struct Node {
+    Point position;
+    Point rotation;
+    Point scale = Point(1, 1, 1);
+    std::vector<Node *> childrens;
     
-    // Vector arithmetic
-    inline void operator +=(Vector3D v);
-    inline Vector3D operator +(Vector3D v) const;
-    inline Vector3D operator -(Vector3D v) const;
-    inline Vector3D operator +(float s) const;
-    inline Vector3D operator -(float s) const;
-    inline Vector3D operator *(float s) const;
-    inline Vector3D operator /(float s) const;
+    virtual void render() const {
+        glTranslatef(position.v[0], position.v[1], position.v[2]);
+        glRotatef(rotation.v[0], 1, 0, 0);
+        glRotatef(rotation.v[1], 0, 1, 0);
+        glRotatef(rotation.v[2], 0, 0, 1);
+        glScaled(scale.v[0], scale.v[1], scale.v[2]);
+        
+        for (Node *child: childrens) {
+            glPushMatrix();
+            child->render();
+            glPopMatrix();
+        }
+    }
 };
 
 
+
+// MARK: - BOUNDING BOX
 
 /// Box aligned to the space axes.
 /// Represented by two opposites points, min and max
 /// - Max is the ccrner  facing direction (+X, +Y, +Z)
 /// - Min is the corner facing direction (-X, -Y, -Z)
-struct BoundingBox {
-    Vector3D min;
-    Vector3D max;
-    BoundingBox(Vector3D min, Vector3D max): min(min), max(max) {}
-    
-    inline Vector3D center() const;
-    inline float diagonal() const;
-};
 
-
-
-/// Base Object Class
-/// Object tree in the scene
-/// Inherited by the camera, meshes, and eventually lights..
-struct Object {
-    Vector3D position;
-    Vector3D rotation;
-    Vector3D scale = Vector3D(1, 1, 1);
-    std::vector<Object *> childrens;
-    
-    virtual void render() const;
-};
-
-
-
-/// Mesh Class
-/// Collection of faces
-/// Provides bounding box containing all the vertices
-class Mesh: public Object {
-typedef Vector3D Vertex;
-private:
-    GLenum type = GL_TRIANGLES;
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> faces;
-    BoundingBox *bounds = nullptr;
-
-    void computeBoundingBox();
+class BoundingBox {
+public:
+    Point min;
+    Point max;
+    BoundingBox(Point min, Point max): min(min), max(max) {}
     
 public:
-    Vector3D color = Vector3D(1, 1, 1);
-    
-    Mesh() {}
-    Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> faces);
-    ~Mesh();
-    
-    inline void setRenderingStyle(GLenum mode);
-    inline const BoundingBox& getBounds();
-    inline void showBounds();
-    void render() const override;
-    bool fromOBJFile(const char filename[]);
+    inline Point center() { return (min + max) / 2; }
+    inline float diagonal() { return (max - min).norm(); }
 };
 
 
+
+// MARK: - ORIGIN AXIS
+struct Origin final : public Node {
+    void render() const override {
+        glDisable(GL_LIGHTING);
+        glBegin(GL_LINES);
+        
+        glColor3d(1, 0, 0);
+        glVertex3d(1, 0, 0);
+        glVertex3d(0, 0, 0);
+        
+        glColor3d(0, 1, 0);
+        glVertex3d(0, 1, 0);
+        glVertex3d(0, 0, 0);
+        
+        glColor3d(0, 0, 1);
+        glVertex3d(0, 0, 1);
+        glVertex3d(0, 0, 0);
+        
+        glEnd();
+    }
+};
+
+
+
+// MARK: - OBJECT
+
+/// Node with a mesh
+/// Provides bounding box containing all the vertices
+class Object: public Node {
+    
+public:
+    static bool showBoundingBox;
+    static bool showEdgeGraph;
+    static bool showBoundaryEdgeLoops;
+    static bool showGaussianCurvatureHeatMap;
+    
+private:
+    Mesh *mesh;
+    BoundingBox *bounds = nullptr;
+    
+    std::vector<double> halfEdgeAngles;
+    std::vector<Point> faceNormals;
+    std::vector<Point> vertexNormals;
+    std::vector<std::vector<Halfedge *>> boundaryEdgeLoops;
+    std::vector<double> vertexGaussianCurvature;
+    std::vector<short> vertexGaussianCurvatureLocalMinMax;
+    
+public:
+    Object(Mesh *mesh): mesh(mesh), faceNormals(0) {
+        computeBoundingBox();
+        computeHalfEdgeAngles();
+        computeFaceNormals();
+        computeVertexNormals();
+        computeBoundaryEdgeLoops();
+        computeGaussianCurvature();
+        computeGaussianCurvatureLocalMinMax();
+        
+        std::cout << "Found " << boundaryEdgeLoops.size() << " boundary edge loops." << std::endl;
+    }
+    
+    ~Object()  {
+        if (mesh != nullptr) {  delete mesh; }
+    }
+    
+    inline const BoundingBox& getBounds() {
+        if (bounds == nullptr) { computeBoundingBox(); }
+        return *bounds;
+    }
+    
+    // MARK: MESH RENDER
+    void render() const override  {
+        Node::render();
+        
+        glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        glBegin(GL_TRIANGLES);
+        
+        
+        // iterate through faces, then vertices
+        for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+            for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
+                int index = (*vertexIt)->index();
+                
+                float color[4] = { 1, 1, 1, 1};
+                if (showGaussianCurvatureHeatMap) {
+                    switch (vertexGaussianCurvatureLocalMinMax[index]) {
+                        case  1: color[0] = 1;   color[1] = 0;   color[2] = 0; break;
+                        case -1: color[0] = 0;   color[1] = 1;   color[2] = 0; break;
+                        case  0:
+                            color[0] = 0.7 + vertexGaussianCurvature[index] * 0.5;
+                            color[1] = 0.7 - vertexGaussianCurvature[index] * 0.5;
+                            color[2] = 0.7;
+                        break;
+                    }
+                }
+                
+                glColor3fv(color);
+                glMaterialfv(GL_FRONT, GL_DIFFUSE, color);
+                
+                
+                if (showGaussianCurvatureHeatMap) {
+                    switch (vertexGaussianCurvatureLocalMinMax[index]) {
+                        case  1:case -1: color[3] = 1; break;
+                        case  0: color[3] = 0.9; break;
+                    }
+                }
+                glMaterialfv(GL_FRONT, GL_AMBIENT, color);
+                
+                glNormal3dv(vertexNormals[index].v);
+                glVertex3dv((*vertexIt)->point().v);
+            }
+        }
+        glEnd();
+        
+        if (showBoundingBox) renderBoundingBox();
+        if (showEdgeGraph) renderEdgeConnectivity();
+        if (showBoundaryEdgeLoops) renderBoundaryEdgeLoops();
+    }
+    
+    
+private:
+    void computeBoundingBox() {
+        MeshVertexIterator it(mesh);
+        
+        Point min = (*it)->point();
+        Point max = (*it)->point();
+        
+        for (MeshVertexIterator it(mesh); !it.end(); ++it) {
+            min.v[0] = std::min(min.v[0], (*it)->point().v[0]);
+            min.v[1] = std::min(min.v[1], (*it)->point().v[1]);
+            min.v[2] = std::min(min.v[2], (*it)->point().v[2]);
+            
+            max.v[0] = std::max(max.v[0], (*it)->point().v[0]);
+            max.v[1] = std::max(max.v[1], (*it)->point().v[1]);
+            max.v[2] = std::max(max.v[2], (*it)->point().v[2]);
+        }
+        
+        bounds = new BoundingBox(min, max);
+    }
+    
+    // MARK: Compute angles
+    void computeHalfEdgeAngles() {
+        halfEdgeAngles.empty();
+        halfEdgeAngles.resize(mesh->numFaces() * 3);
+        
+        for (MeshHalfedgeIterator heit(mesh); !heit.end(); ++heit) {
+            Halfedge *he = (*heit);
+            Point u = he->target()->point() - he->source()->point();
+            he = he->ccw_rotate_about_source();
+            if (!he) continue; //
+            Point v = he->target()->point() - he->source()->point();
+            
+            halfEdgeAngles[he->index()] = acos((u * v) / (u.norm() * v.norm()));
+        }
+    }
+    
+    // MARK: Compute face normals
+    void computeFaceNormals()  {
+        faceNormals.empty();
+        faceNormals.resize(mesh->numFaces());
+        
+        for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
+            // collect face points
+            FaceVertexIterator vertexIt(*faceIt);
+            Point v0, v1, v2;
+            v0 = (*vertexIt)->point();
+            ++vertexIt;
+            v1 = (*vertexIt)->point();
+            ++vertexIt;
+            v2 = (*vertexIt)->point();
+            
+            // compute halfedge uv vectors
+            Point u = v1 - v0;
+            Point v = v2 - v0;
+            
+            Point normal = u ^ v;                      // cross product uv
+            normal /= normal.norm();                   // normalize
+            faceNormals[(*faceIt)->index()] = normal;  // memorize
+        }
+    }
+    
+    // MARK: Compute vertex normals
+    void computeVertexNormals() {
+        vertexNormals.clear();
+        vertexNormals.resize(mesh->numVertices());
+        
+        for (MeshVertexIterator veit(mesh); !veit.end(); ++veit) {
+            Point normal(0,0,0);
+            
+            for (VertexOutHalfedgeIterator heoit(*veit); !heoit.end(); ++heoit) {
+                Point weightedNormal = faceNormals[(*heoit)->face()->index()] * halfEdgeAngles[(*heoit)->index()];
+                normal += weightedNormal;
+            }
+            
+            normal /= normal.norm();                  // normalise
+            vertexNormals[(*veit)->index()] = normal; // memorise
+        }
+    }
+    
+    // MARK: Compute Edge loops
+    void computeBoundaryEdgeLoops() {
+        boundaryEdgeLoops.empty();
+        
+        std::vector<bool> visited;
+        visited.assign(mesh->numEdges(), false);
+        
+        // find a boundary vertex
+        for (MeshVertexIterator veit(mesh); !veit.end(); ++veit) {
+            if (!(*veit)->boundary()) continue;
+            
+            // ignore explored loops
+            if (visited[!(*veit)->index()]) continue;
+            
+            // explore loop.
+            int firstVertexIndex = (*veit)->index();
+            Halfedge *he = (*veit)->most_ccw_out_halfedge();
+            std::vector<Halfedge *> loop;
+            
+            do {
+                // rotate to the next boundary vertex
+                do {
+                    he = he->clw_rotate_about_source();
+                } while (!he->target()->boundary());
+                
+                // move forward, mark as visited
+                loop.push_back(he);
+                visited[he->source()->index()] = true;
+                he = he->next();
+            } while (he->source()->index() != firstVertexIndex);
+            
+            boundaryEdgeLoops.push_back(loop);
+        }
+    }
+    
+    
+    // MARK: Compute gaussian curvature
+    void computeGaussianCurvature() {
+        const float pi = 3.1415927;
+        
+        vertexGaussianCurvature.empty();
+        vertexGaussianCurvature.assign(mesh->numVertices(), 0);
+        
+        for (MeshHalfedgeIterator it(mesh); !it.end(); ++it) {
+            Halfedge *he = *it;
+            vertexGaussianCurvature[he->source()->index()] += halfEdgeAngles[he->index()];
+        }
+        
+        for (double& angleSum: vertexGaussianCurvature) {
+            angleSum = 2 * pi - angleSum;
+        }
+    }
+    
+    void computeGaussianCurvatureLocalMinMax() {
+        // compute local min-max
+        vertexGaussianCurvatureLocalMinMax.empty();
+        vertexGaussianCurvatureLocalMinMax.resize(mesh->numVertices());
+        
+        for (MeshVertexIterator it(mesh); !it.end(); ++it) {
+            const double threshold = 0.05;
+            
+            int index = (*it)->index();
+            double localCurvature = vertexGaussianCurvature[index];
+            
+            if (localCurvature > -threshold && localCurvature < threshold) {
+                vertexGaussianCurvatureLocalMinMax[index] = 0;
+                continue;
+            }
+            
+            // discard non maxima vertices
+            for (VertexOutHalfedgeIterator veit(*it); !veit.end(); ++veit) {
+                if (localCurvature < 0 && localCurvature > vertexGaussianCurvature[(*veit)->target()->index()]) return;
+                if (localCurvature > 1 && localCurvature < vertexGaussianCurvature[(*veit)->target()->index()]) return;
+            }
+            
+            vertexGaussianCurvatureLocalMinMax[index] = (localCurvature > 0) ? -1 : 1;
+        }
+    }
+    
+    void renderBoundingBox() const {
+        Point min = bounds->min;
+        Point max = bounds->max;
+        
+        Point boxVertices[8] {
+            min,                                    // 0
+            Point(max.v[0], min.v[1], min.v[2]),    // 1
+            Point(max.v[0], max.v[1], min.v[2]),    // 2
+            Point(min.v[0], max.v[1], min.v[2]),    // 3
+            max,                                    // 4
+            Point(min.v[0], max.v[1], max.v[2]),    // 5
+            Point(min.v[0], min.v[1], max.v[2]),    // 6
+            Point(max.v[0], min.v[1], max.v[2])     // 7
+        };
+        
+        int boxIndices[36] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6};
+        
+        glDisable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        
+        glBegin(GL_LINES);
+        glColor3d(0, 1, 0);
+        glLineWidth(1);
+        
+        for (int i = 0; i < 36; i++) {
+            glVertex3dv(boxVertices[boxIndices[i]].v);
+            
+        }
+        glEnd();
+    }
+    
+    // MARK: Render edge connectivity
+    void renderEdgeConnectivity() const {
+        glDisable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        
+        glBegin(GL_LINES);
+        for (MeshEdgeIterator eit(mesh); !eit.end(); ++eit) {
+            Vertex *source = (*eit)->he(0)->source();
+            Vertex *target = (*eit)->he(0)->target();
+            
+            // Render edge at a slight offset in front of the face to avoid Z-fighting, using the normal.
+            glColor3f(0, 1, 1);
+            glVertex3dv((vertexNormals[source->index()] * 0.003 + source->point()).v);
+            glColor3f(0, 0, 1);
+            glVertex3dv((vertexNormals[target->index()] * 0.003 + target->point()).v);
+        }
+        glEnd();
+    }
+    
+    
+    
+    // MARK: Render boundary edge loops
+    void renderBoundaryEdgeLoops() const {
+        glDisable(GL_LIGHTING);
+        glDisable(GL_DEPTH_TEST);
+        
+        for (std::vector<Halfedge *> loop: boundaryEdgeLoops) {
+            glBegin(GL_LINES);
+            glColor3d(1, 1, 0);
+            glLineWidth(3.0);
+            
+            for (Halfedge *he: loop) {
+                glVertex3dv(he->source()->point().v);
+                glVertex3dv(he->target()->point().v);
+            }
+            glEnd();
+        }
+    }
+};
+
+bool Object::showBoundingBox = false;
+bool Object::showEdgeGraph = false;
+bool Object::showBoundaryEdgeLoops = false;
+bool Object::showGaussianCurvatureHeatMap = false;
+
+
+// MARK: - CAMERA
 
 /// Point of view of the scene
 /// Defines and updates the matrix projection
-class Camera: public Object {
+class Camera final : public Node {
 private:
     float fieldOfView = 45.0f;
     int width = 400;
@@ -136,10 +462,20 @@ private:
     float nearField = 1.0;
     float farField = 1000.0;
     
-    void updateView() const;
+    void updateView() const {
+        float aspectRatio = (float)width / (float)height;
+        glViewport(0, 0, width, height);
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        gluPerspective(fieldOfView, aspectRatio, nearField, farField);
+    }
     
 public:
-    void resize(int newWidth, int newHeight);
+    void resize(int newWidth, int newHeight){
+        width = newWidth;
+        height = newHeight;
+        updateView();
+    }
     
     // Getters
     inline const int getWidth() const { return width; }
@@ -147,6 +483,7 @@ public:
 };
 
 
+// MARK: - RENDERER
 
 /// Renderer static class
 /// Provides the draw and update loop to OpenGL
@@ -155,84 +492,128 @@ public:
 /// finally `start()` launches the render loop.
 ///
 /// The camera property is the point of view and root of the scene graph.
-class Renderer {
-private:
-    static void draw();
-    static void update(int value);
-    static void handleResize(int w, int h);
-    
+class Renderer final {
 public:
     static Camera camera;
     
-    static void init(int &argc, char** &argv);
-    static void createWindow(int width, int height, const char title[]);
-    static void start();
+private:
+    static void draw() {
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glPushMatrix();
+        camera.render();
+        glPopMatrix();
+        glutSwapBuffers();
+    }
+    
+    static void update(int value) {
+        glutPostRedisplay();
+        glutTimerFunc(25, Renderer::update, 0);
+    }
+    
+    static void handleResize(int w, int h) {
+        camera.resize(w, h);
+        glutPostRedisplay();
+    }
+    
+public:
+    static void init(int &argc, char** &argv) {
+        glutInit(&argc, argv);
+        glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
+    }
+    
+    static void createWindow(int width, int height, const char title[]) {
+        glutInitWindowSize(width, height);
+        glutCreateWindow(title);
+        
+        glClearColor(0, 0, 0, 1);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+        glEnable(GL_SMOOTH);
+        glEnable(GL_LINE_SMOOTH);
+        float position[4] = { 10, 10, 10, 1 };
+        glLightfv(GL_LIGHT0, GL_POSITION, position);
+        handleResize(width, height);
+    }
+    
+    static void start() {
+        glutDisplayFunc(draw);
+        glutReshapeFunc(handleResize);
+        glutTimerFunc(25, update, 0); //Add a timer
+        glutMainLoop();
+    }
 };
 
+// static camera declaration
+Camera Renderer::camera;
 
+
+// MARK: - ORBITAL CAMERA
 
 /// Orbital Camera controls
 /// Simple and classic orbital camera control scheme using mouse input.
 /// Takes the Renderer::camera and rotates it around the (0,0,0) scene coordinates.
 /// The camera up direction is always alined to the Z axis
-class OrbitControls {
+class OrbitControls final {
 private:
-    static void mouseMove(int screenX, int screenY);
+    static void mouseMove(int screenX, int screenY) {
+        float viewX = (float)screenX / (float)Renderer::camera.getWidth();
+        float viewY = (float)screenY / (float)Renderer::camera.getHeight();
+        
+        Point rotation = Point((viewY * 2) - 1, (viewX * 2) - 1, 0);
+        Renderer::camera.rotation = rotation * 180;
+    }
 public:
-    static void init();
+    static void init() {
+        glutMotionFunc(mouseMove);
+    }
 };
 
 
-/// Factory function, generates an origin axis mesh object.
-Object* makeOrigin() {
-    Mesh *x, *y, *z;
-    x = new Mesh({ Vector3D(-1, 0, 0), Vector3D( 1, 0, 0) }, { 0, 1, 0 }); // Red X
-    y = new Mesh({ Vector3D( 0,-1, 0), Vector3D( 0, 1, 0) }, { 0, 1, 0 }); // Green Y
-    z = new Mesh({ Vector3D( 0, 0,-1), Vector3D( 0, 0, 1) }, { 0, 1, 0 }); // Blue Z
-    
-    x->color = Vector3D( 1, 0, 0);
-    y->color = Vector3D( 0, 1, 0);
-    z->color = Vector3D( 0, 0, 1);
-    
-    x->setRenderingStyle(GL_LINES);
-    y->setRenderingStyle(GL_LINES);
-    z->setRenderingStyle(GL_LINES);
-    
-    Object *origin = new Object();
-    
-    origin->childrens.push_back(x);
-    origin->childrens.push_back(y);
-    origin->childrens.push_back(z);
-    
-    return origin;
-}
+// MARK: - KEYBOARD HANDLER
 
+/// Static class, listens for keyboard input, controlling display modes of Object
 
-
+class KeyboardHandler final {
+private:
+    static void handleKeyUp(unsigned char keyCode, int screenX, int screenY) {
+        switch (keyCode) {
+                // switch display options
+            case 's': case 'S': Object::showBoundingBox ^= true;              break;
+            case 'e': case 'E': Object::showEdgeGraph ^= true;                break;
+            case 'b': case 'B': Object::showBoundaryEdgeLoops ^= true;        break;
+            case 'k': case 'K': Object::showGaussianCurvatureHeatMap ^= true; break;
+                
+            default: break;
+        }
+    }
+    
+public:
+    static void init() {
+        glutKeyboardUpFunc(handleKeyUp);
+    }
+};
 
 
 // MARK: - MAIN -
 
 int main(int argc, char** argv) {
     
-    Object *scene = new Object();
+    Node *scene = new Node();
     Renderer::camera.childrens.push_back(scene);
     
-    Object *origin = makeOrigin();
-    scene->childrens.push_back(origin);
+    Origin origin;
+    scene->childrens.push_back(&origin);
     
-    Mesh *lastmesh = nullptr;
+    Object *lastAddedObject = nullptr;
     for (int arg = 1; arg < argc; arg ++) {
         
         Mesh *mesh = new Mesh();
-        
         // try to load obj, and push into the scene
-        if (mesh->fromOBJFile(argv[arg])) {
-            mesh->setRenderingStyle(GL_TRIANGLES);
-            mesh->showBounds();
-            
-            lastmesh = mesh;
-            scene->childrens.push_back(mesh);
+        if (mesh->readOBJFile(argv[arg])) {
+            Object *object = new Object(mesh);
+            scene->childrens.push_back(object);
+            lastAddedObject = object;
         }
         
         // Free memory if failed to open file
@@ -244,299 +625,17 @@ int main(int argc, char** argv) {
     // center camera point of view on the last mesh
     // we move the scene so the orbit is around the object
     // then we translate the camera back so it fits in the fov.
-    if (lastmesh != nullptr) {
-        BoundingBox bounds = lastmesh->getBounds();
+    if (lastAddedObject != nullptr) {
+        BoundingBox bounds = lastAddedObject->getBounds();
         scene->position = bounds.center() * -1;
-        Renderer::camera.position.z = -1.5 * bounds.diagonal();
+        Renderer::camera.position.v[2] = -1.5 * bounds.diagonal();
     }
     
     Renderer::init(argc, argv);
-    Renderer::createWindow(800, 800, "Prog1");
+    Renderer::createWindow(800, 800, "Prog2");
     OrbitControls::init();
+    KeyboardHandler::init();
     Renderer::start();
     
     return 0;
-}
-
-
-
-
-
-
-
-
-// MARK: - CLASS IMPLEMENTATION -
-
-
-
-// MARK: - Mesh
-
-// MARK: Mesh Render
-
-void Mesh::render() const  {
-    Object::render();
-    glBegin(type);
-    glColor3f(color.x, color.y, color.z);
-    for (int vertexIndex: faces) {
-        Vertex vertex = vertices[vertexIndex];
-        glVertex3fv(vertex.data());
-    }
-    glEnd();
-}
-
-// MARK: OBJ File loader
-
-bool Mesh::fromOBJFile(const char filename[]) {
-    std::ifstream objFile;
-    objFile.open(filename);
-    
-    // Check if object file open successfully
-    if ( !objFile.good() ) {
-        objFile.close();
-        std::cerr << "failed to open file " << filename << ".\n";
-        return false;
-    }
-    
-    
-    vertices.clear();
-    faces.clear();
-    
-    float vecX, vecY, vecZ;
-    unsigned int idxA, idxB, idxC;
-    
-    while ( !objFile.eof() && !objFile.fail()) {
-        char type = objFile.get();
-        
-        switch (type) {
-            case 'v': // Vertex position
-                objFile >> vecX >> vecY >> vecZ;
-                vertices.emplace_back(vecX, vecY, vecZ);
-                break;
-                
-            case 'f': // Face indexes
-                objFile >> idxA >> idxB >> idxC;
-                faces.insert(faces.end(), { idxA - 1, idxB - 1, idxC - 1 });
-                break;
-                
-            default: // Supported case
-                break;
-        }
-    }
-    
-    return true;
-}
-
-// MARK: Compute Bounding Box
-
-void Mesh::computeBoundingBox() {
-    Vector3D min = vertices.front();
-    Vector3D max = vertices.front();
-    
-    for (Vector3D current: vertices) {
-        min.x = std::min(min.x, current.x);
-        min.y = std::min(min.y, current.y);
-        min.z = std::min(min.z, current.z);
-        
-        max.x = std::max(max.x, current.x);
-        max.y = std::max(max.y, current.y);
-        max.z = std::max(max.z, current.z);
-    }
-    
-    bounds = new BoundingBox(min, max);
-}
-
-// MARK: Mesh extras
-
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> faces):
-vertices(vertices), faces(faces) {}
-
-Mesh::~Mesh() {
-    for (Object *child: childrens) { delete child; }
-}
-
-void Mesh::setRenderingStyle(GLenum mode) {
-    type = mode;
-}
-
-const BoundingBox& Mesh::getBounds() {
-    if (bounds == nullptr) { computeBoundingBox(); }
-    return *bounds;
-}
-
-void Mesh::showBounds() {
-    if (bounds == nullptr) { computeBoundingBox(); }
-    Mesh *boundsMesh = new Mesh({
-        bounds->min,                                            // 0
-        Vertex(bounds->max.x, bounds->min.y, bounds->min.z),    // 1
-        Vertex(bounds->max.x, bounds->max.y, bounds->min.z),    // 2
-        Vertex(bounds->min.x, bounds->max.y, bounds->min.z),    // 3
-        bounds->max,                                            // 4
-        Vertex(bounds->min.x, bounds->max.y, bounds->max.z),    // 5
-        Vertex(bounds->min.x, bounds->min.y, bounds->max.z),    // 6
-        Vertex(bounds->max.x, bounds->min.y, bounds->max.z)     // 7
-    }, { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6});
-    
-    boundsMesh->setRenderingStyle(GL_LINES);
-    boundsMesh->color = Vector3D(0, 1, 0);
-    
-    childrens.push_back(boundsMesh);
-}
-
-
-
-
-
-// MARK: - BoundingBox
-
-Vector3D BoundingBox::center() const {
-    return (min + max) / 2;
-}
-
-float BoundingBox::diagonal() const {
-    return (max - min).magnitude();
-}
-
-
-
-
-// MARK: - Renderer
-
-Camera Renderer::camera;
-
-void Renderer::init(int &argc, char** &argv) {
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
-}
-
-void Renderer::createWindow(int width, int height, const char title[]) {
-    glutInitWindowSize(width, height);
-    glutCreateWindow(title);
-    
-    glClearColor(0, 0, 0, 1);
-    glEnable(GL_DEPTH_TEST);
-    handleResize(width, height);
-}
-
-void Renderer::start() {
-    glutDisplayFunc(Renderer::draw);
-    glutReshapeFunc(Renderer::handleResize);
-    glutTimerFunc(25, Renderer::update, 0); //Add a timer
-    glutMainLoop();
-}
-
-void Renderer::handleResize(int w, int h) {
-    camera.resize(w, h);
-    glutPostRedisplay();
-}
-
-void Renderer::draw() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glPushMatrix();
-    camera.render();
-    glPopMatrix();
-    glutSwapBuffers();
-}
-
-void Renderer::update(int value) {
-    glutPostRedisplay();
-    glutTimerFunc(25, Renderer::update, 0);
-}
-
-
-
-
-// MARK: - Orbit Controls
-
-void OrbitControls::mouseMove(int screenX, int screenY) {
-    float viewX = (float)screenX / (float)Renderer::camera.getWidth();
-    float viewY = (float)screenY / (float)Renderer::camera.getHeight();
-    
-    Vector3D rotation = Vector3D((viewY * 2) - 1, (viewX * 2) - 1, 0);
-    Renderer::camera.rotation = rotation * 180;
-}
-
-void OrbitControls::init() {
-    glutMotionFunc(OrbitControls::mouseMove);
-}
-
-
-
-// MARK: - Object
-
-void Object::render() const {
-    glTranslatef(position.x, position.y, position.z);
-    glRotatef(rotation.x, 1, 0, 0);
-    glRotatef(rotation.y, 0, 1, 0);
-    glRotatef(rotation.z, 0, 0, 1);
-    glScaled(scale.x, scale.y, scale.z);
-    
-    for (Object *child: childrens) {
-        glPushMatrix();
-        child->render();
-        glPopMatrix();
-    }
-}
-
-
-
-
-// MARK: - Camera
-
-void Camera::updateView() const {
-    float aspectRatio = (float)width / (float)height;
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(fieldOfView, aspectRatio, nearField, farField);
-}
-
-void Camera::resize(int newWidth, int newHeight){
-    width = newWidth;
-    height = newHeight;
-    updateView();
-}
-
-
-
-
-// MARK: - Vector 3D
-
-float Vector3D::magnitudeSquared() const {
-    return x * x + y * y + z * z;
-}
-
-float Vector3D::magnitude() const {
-    return std::sqrtf(magnitudeSquared());
-}
-
-float* Vector3D::data() {
-    return &x;
-}
-
-inline Vector3D Vector3D::operator +(Vector3D v) const  {
-    return Vector3D(x + v.x, y + v.y, z + v.z);
-}
-
-inline void Vector3D::operator +=(Vector3D v) {
-    x += v.x; y += v.y; z += v.z;
-}
-
-inline Vector3D Vector3D::operator -(Vector3D v) const {
-    return Vector3D(x - v.x, y - v.y, z - v.z);
-}
-
-Vector3D Vector3D::operator +(float s) const {
-    return Vector3D(x + s, y + s, z + s);
-}
-
-Vector3D Vector3D::operator -(float s) const {
-    return Vector3D(x - s, y - s, z - s);
-}
-
-Vector3D Vector3D::operator *(float s) const {
-    return Vector3D(x * s, y * s, z * s);
-}
-
-Vector3D Vector3D::operator /(float s) const {
-    return Vector3D(x / s, y / s, z / s);
 }
