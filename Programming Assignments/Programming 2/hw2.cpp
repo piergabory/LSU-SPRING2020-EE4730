@@ -138,7 +138,7 @@ private:
     std::vector<double> halfEdgeAngles;
     std::vector<Point> faceNormals;
     std::vector<Point> vertexNormals;
-    std::vector<std::vector<Vertex *>> boundaryEdgeLoops;
+    std::vector<std::vector<Halfedge *>> boundaryEdgeLoops;
     
  public:
     Object(Mesh *mesh): mesh(mesh), faceNormals(0) {
@@ -160,9 +160,11 @@ private:
         return *bounds;
     }
     
+    // MARK: MESH RENDER
     void render() const override  {
         Node::render();
         glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
         glBegin(GL_TRIANGLES);
         
         // iterate through faces, then vertices
@@ -176,6 +178,7 @@ private:
         
         if (showBoundingBox) renderBoundingBox();
         if (showEdgeGraph) renderEdgeConnectivity();
+        if (showBoundaryEdgeLoops) renderBoundaryEdgeLoops();
     }
     
     
@@ -199,6 +202,7 @@ private:
         bounds = new BoundingBox(min, max);
     }
     
+    // MARK: Compute angles
     void computeHalfEdgeAngles() {
         halfEdgeAngles.empty();
         halfEdgeAngles.resize(mesh->numFaces() * 3);
@@ -214,6 +218,7 @@ private:
         }
     }
     
+    // MARK: Compute face normals
     void computeFaceNormals()  {
         faceNormals.empty();
         faceNormals.resize(mesh->numFaces());
@@ -238,6 +243,7 @@ private:
         }
     }
     
+    // MARK: Compute vertex normals
     void computeVertexNormals() {
         vertexNormals.clear();
         vertexNormals.resize(mesh->numVertices());
@@ -255,8 +261,39 @@ private:
         }
     }
     
+    // MARK: Compute Edge loops
     void computeBoundaryEdgeLoops() {
-      
+        boundaryEdgeLoops.empty();
+       
+        std::vector<bool> visited;
+        visited.assign(mesh->numEdges(), false);
+        
+        // find a boundary vertex
+        for (MeshVertexIterator veit(mesh); !veit.end(); ++veit) {
+            if (!(*veit)->boundary()) continue;
+            
+            // ignore explored loops
+            if (visited[!(*veit)->index()]) continue;
+            
+            // explore loop.
+            int firstVertexIndex = (*veit)->index();
+            Halfedge *he = (*veit)->most_ccw_out_halfedge();
+            std::vector<Halfedge *> loop;
+            
+            do {
+                // rotate to the next boundary vertex
+                do {
+                    he = he->clw_rotate_about_source();
+                } while (!he->target()->boundary());
+                
+                // move forward, mark as visited
+                loop.push_back(he);
+                visited[he->source()->index()] = true;
+                he = he->next();
+            } while (he->source()->index() != firstVertexIndex);
+            
+            boundaryEdgeLoops.push_back(loop);
+        }
     }
     
     void renderBoundingBox() const {
@@ -277,8 +314,12 @@ private:
         int boxIndices[36] = { 0, 1, 2, 3, 4, 5, 6, 7, 0, 6, 1, 7, 2, 4, 3, 5, 0, 3, 1, 2, 4, 7, 5, 6};
         
         glDisable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        
         glBegin(GL_LINES);
         glColor3d(0, 1, 0);
+        glLineWidth(1);
+        
         for (int i = 0; i < 36; i++) {
             glVertex3dv(boxVertices[boxIndices[i]].v);
             
@@ -286,21 +327,43 @@ private:
         glEnd();
     }
     
+    // MARK: Render edge connectivity
     void renderEdgeConnectivity() const {
         glDisable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        
         glBegin(GL_LINES);
         for (MeshEdgeIterator eit(mesh); !eit.end(); ++eit) {
             Vertex *source = (*eit)->he(0)->source();
             Vertex *target = (*eit)->he(0)->target();
             
-            Point v0 = vertexNormals[source->index()] * 0.003 + source->point();
-            Point v1 = vertexNormals[target->index()] * 0.003 + target->point();
-    
+            // Render edge at a slight offset in front of the face to avoid Z-fighting, using the normal.
+            glColor3f(0, 1, 1);
+            glVertex3dv((vertexNormals[source->index()] * 0.003 + source->point()).v);
             glColor3f(0, 0, 1);
-            glVertex3dv(v0.v);
-            glVertex3dv(v1.v);
+            glVertex3dv((vertexNormals[target->index()] * 0.003 + target->point()).v);
         }
         glEnd();
+    }
+
+    
+    
+    // MARK: Render boundary edge loops
+    void renderBoundaryEdgeLoops() const {
+        glDisable(GL_LIGHTING);
+        glDisable(GL_DEPTH_TEST);
+        
+        for (std::vector<Halfedge *> loop: boundaryEdgeLoops) {
+            glBegin(GL_LINES);
+            glColor3d(1, 1, 0);
+            glLineWidth(3.0);
+            
+            for (Halfedge *he: loop) {
+                glVertex3dv(he->source()->point().v);
+                glVertex3dv(he->target()->point().v);
+            }
+            glEnd();
+        }
     }
 };
 
@@ -389,6 +452,8 @@ public:
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
+        glEnable(GL_SMOOTH);
+        glEnable(GL_LINE_SMOOTH);
         float position[4] = { 10, 10, 10, 1 };
         glLightfv(GL_LIGHT0, GL_POSITION, position);
         handleResize(width, height);

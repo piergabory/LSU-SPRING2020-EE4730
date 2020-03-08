@@ -54,7 +54,11 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "David.obj"
-            isEnabled = "YES">
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "testOBJ.txt"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "Susan.obj"
@@ -62,7 +66,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "bunny.obj"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>

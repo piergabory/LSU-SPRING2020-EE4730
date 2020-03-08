@@ -69,7 +69,7 @@
 		D4E8126123EA101900B90200 /* David.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = David.obj; sourceTree = "<group>"; };
 		D4E8126223EA101900B90200 /* horse.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = horse.obj; sourceTree = "<group>"; };
 		D4E8126323EA101900B90200 /* Susan.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = Susan.obj; sourceTree = "<group>"; };
-		D4E8126423EA102400B90200 /* testOBJ.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = testOBJ.obj; sourceTree = "<group>"; };
+		D4E8126423EA102400B90200 /* testOBJ.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = testOBJ.txt; sourceTree = "<group>"; };
 		D4E8126623EA231F00B90200 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
 		D4E8126823EA232400B90200 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
 		D4E8126A23EA232900B90200 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
@@ -150,7 +150,7 @@
 				D4E8126123EA101900B90200 /* David.obj */,
 				D4E8126223EA101900B90200 /* horse.obj */,
 				D4E8126323EA101900B90200 /* Susan.obj */,
-				D4E8126423EA102400B90200 /* testOBJ.obj */,
+				D4E8126423EA102400B90200 /* testOBJ.txt */,
 			);
 			path = OBJMeshes;
 			sourceTree = "<group>";
