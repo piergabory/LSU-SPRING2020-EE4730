@@ -139,16 +139,20 @@ private:
     std::vector<Point> faceNormals;
     std::vector<Point> vertexNormals;
     std::vector<std::vector<Halfedge *>> boundaryEdgeLoops;
+    std::vector<double> vertexGaussianCurvature;
+    std::vector<short> vertexGaussianCurvatureLocalMinMax;
     
- public:
+public:
     Object(Mesh *mesh): mesh(mesh), faceNormals(0) {
         computeBoundingBox();
         computeHalfEdgeAngles();
         computeFaceNormals();
         computeVertexNormals();
         computeBoundaryEdgeLoops();
+        computeGaussianCurvature();
+        computeGaussianCurvatureLocalMinMax();
         
-        std::cout << "Found " << boundaryEdgeLoops.size() << " boundary edge loops.";
+        std::cout << "Found " << boundaryEdgeLoops.size() << " boundary edge loops." << std::endl;
     }
     
     ~Object()  {
@@ -163,14 +167,43 @@ private:
     // MARK: MESH RENDER
     void render() const override  {
         Node::render();
+        
         glEnable(GL_LIGHTING);
         glEnable(GL_DEPTH_TEST);
         glBegin(GL_TRIANGLES);
         
+        
         // iterate through faces, then vertices
         for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
             for (FaceVertexIterator vertexIt(*faceIt); !vertexIt.end(); ++vertexIt) {
-                glNormal3dv(vertexNormals[(*vertexIt)->index()].v);
+                int index = (*vertexIt)->index();
+                
+                float color[4] = { 1, 1, 1, 1};
+                if (showGaussianCurvatureHeatMap) {
+                    switch (vertexGaussianCurvatureLocalMinMax[index]) {
+                        case  1: color[0] = 1;   color[1] = 0;   color[2] = 0; break;
+                        case -1: color[0] = 0;   color[1] = 1;   color[2] = 0; break;
+                        case  0:
+                            color[0] = 0.7 + vertexGaussianCurvature[index] * 0.5;
+                            color[1] = 0.7 - vertexGaussianCurvature[index] * 0.5;
+                            color[2] = 0.7;
+                        break;
+                    }
+                }
+                
+                glColor3fv(color);
+                glMaterialfv(GL_FRONT, GL_DIFFUSE, color);
+                
+                
+                if (showGaussianCurvatureHeatMap) {
+                    switch (vertexGaussianCurvatureLocalMinMax[index]) {
+                        case  1:case -1: color[3] = 1; break;
+                        case  0: color[3] = 0.9; break;
+                    }
+                }
+                glMaterialfv(GL_FRONT, GL_AMBIENT, color);
+                
+                glNormal3dv(vertexNormals[index].v);
                 glVertex3dv((*vertexIt)->point().v);
             }
         }
@@ -211,7 +244,7 @@ private:
             Halfedge *he = (*heit);
             Point u = he->target()->point() - he->source()->point();
             he = he->ccw_rotate_about_source();
-            if (!he) continue; // 
+            if (!he) continue; //
             Point v = he->target()->point() - he->source()->point();
             
             halfEdgeAngles[he->index()] = acos((u * v) / (u.norm() * v.norm()));
@@ -264,7 +297,7 @@ private:
     // MARK: Compute Edge loops
     void computeBoundaryEdgeLoops() {
         boundaryEdgeLoops.empty();
-       
+        
         std::vector<bool> visited;
         visited.assign(mesh->numEdges(), false);
         
@@ -293,6 +326,50 @@ private:
             } while (he->source()->index() != firstVertexIndex);
             
             boundaryEdgeLoops.push_back(loop);
+        }
+    }
+    
+    
+    // MARK: Compute gaussian curvature
+    void computeGaussianCurvature() {
+        const float pi = 3.1415927;
+        
+        vertexGaussianCurvature.empty();
+        vertexGaussianCurvature.assign(mesh->numVertices(), 0);
+        
+        for (MeshHalfedgeIterator it(mesh); !it.end(); ++it) {
+            Halfedge *he = *it;
+            vertexGaussianCurvature[he->source()->index()] += halfEdgeAngles[he->index()];
+        }
+        
+        for (double& angleSum: vertexGaussianCurvature) {
+            angleSum = 2 * pi - angleSum;
+        }
+    }
+    
+    void computeGaussianCurvatureLocalMinMax() {
+        // compute local min-max
+        vertexGaussianCurvatureLocalMinMax.empty();
+        vertexGaussianCurvatureLocalMinMax.resize(mesh->numVertices());
+        
+        for (MeshVertexIterator it(mesh); !it.end(); ++it) {
+            const double threshold = 0.05;
+            
+            int index = (*it)->index();
+            double localCurvature = vertexGaussianCurvature[index];
+            
+            if (localCurvature > -threshold && localCurvature < threshold) {
+                vertexGaussianCurvatureLocalMinMax[index] = 0;
+                continue;
+            }
+            
+            // discard non maxima vertices
+            for (VertexOutHalfedgeIterator veit(*it); !veit.end(); ++veit) {
+                if (localCurvature < 0 && localCurvature > vertexGaussianCurvature[(*veit)->target()->index()]) return;
+                if (localCurvature > 1 && localCurvature < vertexGaussianCurvature[(*veit)->target()->index()]) return;
+            }
+            
+            vertexGaussianCurvatureLocalMinMax[index] = (localCurvature > 0) ? -1 : 1;
         }
     }
     
@@ -345,7 +422,7 @@ private:
         }
         glEnd();
     }
-
+    
     
     
     // MARK: Render boundary edge loops
@@ -501,11 +578,11 @@ class KeyboardHandler final {
 private:
     static void handleKeyUp(unsigned char keyCode, int screenX, int screenY) {
         switch (keyCode) {
-            // switch display options
-            case 's': Object::showBoundingBox ^= true;              break;
-            case 'e': Object::showEdgeGraph ^= true;                break;
-            case 'b': Object::showBoundaryEdgeLoops ^= true;        break;
-            case 'k': Object::showGaussianCurvatureHeatMap ^= true; break;
+                // switch display options
+            case 's': case 'S': Object::showBoundingBox ^= true;              break;
+            case 'e': case 'E': Object::showEdgeGraph ^= true;                break;
+            case 'b': case 'B': Object::showBoundaryEdgeLoops ^= true;        break;
+            case 'k': case 'K': Object::showGaussianCurvatureHeatMap ^= true; break;
                 
             default: break;
         }
