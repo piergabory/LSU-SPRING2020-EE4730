@@ -74,6 +74,8 @@
 		D4E8126823EA232400B90200 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
 		D4E8126A23EA232900B90200 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		D4E8126C23EA232F00B90200 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		D4ED81D12416CA8B00C9CC85 /* face2.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = face2.obj; sourceTree = "<group>"; };
+		D4ED81D22416CA8B00C9CC85 /* fandisk.obj */ = {isa = PBXFileReference; lastKnownFileType = text; path = fandisk.obj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +146,8 @@
 		D4985ECC241456E200A56C4A /* OBJMeshes */ = {
 			isa = PBXGroup;
 			children = (
+				D4ED81D12416CA8B00C9CC85 /* face2.obj */,
+				D4ED81D22416CA8B00C9CC85 /* fandisk.obj */,
 				D43767A8241038D800AF87D0 /* David.obj */,
 				D4E8125F23EA101900B90200 /* bunny.obj */,
 				D4E8126023EA101900B90200 /* camel.obj */,

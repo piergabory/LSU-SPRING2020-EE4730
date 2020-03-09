@@ -54,7 +54,15 @@
       <CommandLineArguments>
          <CommandLineArgument
             argument = "David.obj"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "face2.obj"
             isEnabled = "YES">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "fandisk.obj"
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "testOBJ.txt"

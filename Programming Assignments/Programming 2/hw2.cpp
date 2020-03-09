@@ -58,6 +58,12 @@ struct Node {
     Point scale = Point(1, 1, 1);
     std::vector<Node *> childrens;
     
+    virtual void update() {
+        for (Node *child: childrens) {
+            child->update();
+        }
+    }
+    
     virtual void render() const {
         glTranslatef(position.v[0], position.v[1], position.v[2]);
         glRotatef(rotation.v[0], 1, 0, 0);
@@ -184,10 +190,10 @@ public:
                         case  1: color[0] = 1;   color[1] = 0;   color[2] = 0; break;
                         case -1: color[0] = 0;   color[1] = 1;   color[2] = 0; break;
                         case  0:
-                            color[0] = 0.7 + vertexGaussianCurvature[index] * 0.5;
-                            color[1] = 0.7 - vertexGaussianCurvature[index] * 0.5;
+                            color[0] = 0.7 + vertexGaussianCurvature[index] * 5;
+                            color[1] = 0.7 - vertexGaussianCurvature[index] * 5;
                             color[2] = 0.7;
-                        break;
+                            break;
                     }
                 }
                 
@@ -257,18 +263,11 @@ private:
         faceNormals.resize(mesh->numFaces());
         
         for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-            // collect face points
-            FaceVertexIterator vertexIt(*faceIt);
-            Point v0, v1, v2;
-            v0 = (*vertexIt)->point();
-            ++vertexIt;
-            v1 = (*vertexIt)->point();
-            ++vertexIt;
-            v2 = (*vertexIt)->point();
-            
-            // compute halfedge uv vectors
-            Point u = v1 - v0;
-            Point v = v2 - v0;
+            Halfedge *he = (*faceIt)->he();
+            Point u = he->target()->point() - he->source()->point();
+            he = he->clw_rotate_about_source();
+            if (!he) continue; //
+            Point v = he->target()->point() - he->source()->point();
             
             Point normal = u ^ v;                      // cross product uv
             normal /= normal.norm();                   // normalize
@@ -302,28 +301,21 @@ private:
         visited.assign(mesh->numEdges(), false);
         
         // find a boundary vertex
-        for (MeshVertexIterator veit(mesh); !veit.end(); ++veit) {
-            if (!(*veit)->boundary()) continue;
+        for (MeshEdgeIterator edit(mesh); !edit.end(); ++edit) {
+            Edge *edge = *edit;
+            if (!edge->boundary()) continue;
+            if (visited[!edge->index()]) continue;
             
-            // ignore explored loops
-            if (visited[!(*veit)->index()]) continue;
+            std::vector<Halfedge *> loop;
+            Halfedge *he = edge->he(0);
             
             // explore loop.
-            int firstVertexIndex = (*veit)->index();
-            Halfedge *he = (*veit)->most_ccw_out_halfedge();
-            std::vector<Halfedge *> loop;
-            
+            int firstIndex = he->index();
             do {
-                // rotate to the next boundary vertex
-                do {
-                    he = he->clw_rotate_about_source();
-                } while (!he->target()->boundary());
-                
-                // move forward, mark as visited
+                visited[he->edge()->index()] = true;
                 loop.push_back(he);
-                visited[he->source()->index()] = true;
-                he = he->next();
-            } while (he->source()->index() != firstVertexIndex);
+                he = he->target()->most_clw_out_halfedge();
+            } while (firstIndex != he->index());
             
             boundaryEdgeLoops.push_back(loop);
         }
@@ -332,18 +324,14 @@ private:
     
     // MARK: Compute gaussian curvature
     void computeGaussianCurvature() {
-        const float pi = 3.1415927;
+        const float tau = 2 * 3.14159265359;
         
         vertexGaussianCurvature.empty();
-        vertexGaussianCurvature.assign(mesh->numVertices(), 0);
+        vertexGaussianCurvature.assign(mesh->numVertices(), tau);
         
         for (MeshHalfedgeIterator it(mesh); !it.end(); ++it) {
             Halfedge *he = *it;
-            vertexGaussianCurvature[he->source()->index()] += halfEdgeAngles[he->index()];
-        }
-        
-        for (double& angleSum: vertexGaussianCurvature) {
-            angleSum = 2 * pi - angleSum;
+            vertexGaussianCurvature[he->source()->index()] -= halfEdgeAngles[he->index()];
         }
     }
     
@@ -353,23 +341,31 @@ private:
         vertexGaussianCurvatureLocalMinMax.resize(mesh->numVertices());
         
         for (MeshVertexIterator it(mesh); !it.end(); ++it) {
-            const double threshold = 0.05;
-            
             int index = (*it)->index();
+            const double threshold = 0.05;
             double localCurvature = vertexGaussianCurvature[index];
             
-            if (localCurvature > -threshold && localCurvature < threshold) {
+            bool discard = false;
+            
+            if (abs(localCurvature) < threshold) {
+                discard = true;
+            }
+            
+            else for (VertexOutHalfedgeIterator veit(*it); !veit.end(); ++veit) {
+                if (localCurvature > 0 && localCurvature < vertexGaussianCurvature[(*veit)->target()->index()]) {
+                    discard = true;
+                };
+                
+                if (localCurvature < 0 && localCurvature > vertexGaussianCurvature[(*veit)->target()->index()]) {
+                    discard = true;
+                };
+            }
+            
+            if (!discard) {
+                vertexGaussianCurvatureLocalMinMax[index] = localCurvature > 0 ? 1 : -1;
+            } else {
                 vertexGaussianCurvatureLocalMinMax[index] = 0;
-                continue;
             }
-            
-            // discard non maxima vertices
-            for (VertexOutHalfedgeIterator veit(*it); !veit.end(); ++veit) {
-                if (localCurvature < 0 && localCurvature > vertexGaussianCurvature[(*veit)->target()->index()]) return;
-                if (localCurvature > 1 && localCurvature < vertexGaussianCurvature[(*veit)->target()->index()]) return;
-            }
-            
-            vertexGaussianCurvatureLocalMinMax[index] = (localCurvature > 0) ? -1 : 1;
         }
     }
     
@@ -416,9 +412,9 @@ private:
             
             // Render edge at a slight offset in front of the face to avoid Z-fighting, using the normal.
             glColor3f(0, 1, 1);
-            glVertex3dv((vertexNormals[source->index()] * 0.003 + source->point()).v);
+            glVertex3dv((vertexNormals[source->index()] * -0.003 + source->point()).v);
             glColor3f(0, 0, 1);
-            glVertex3dv((vertexNormals[target->index()] * 0.003 + target->point()).v);
+            glVertex3dv((vertexNormals[target->index()] * -0.003 + target->point()).v);
         }
         glEnd();
     }
@@ -462,6 +458,10 @@ private:
     float nearField = 1.0;
     float farField = 1000.0;
     
+public:
+    Point movement = Point(0,0,0);
+    
+private:
     void updateView() const {
         float aspectRatio = (float)width / (float)height;
         glViewport(0, 0, width, height);
@@ -475,6 +475,10 @@ public:
         width = newWidth;
         height = newHeight;
         updateView();
+    }
+    
+    void update() override {
+        position += movement;
     }
     
     // Getters
@@ -507,6 +511,7 @@ private:
     
     static void update(int value) {
         glutPostRedisplay();
+        camera.update();
         glutTimerFunc(25, Renderer::update, 0);
     }
     
@@ -531,7 +536,7 @@ public:
         glEnable(GL_LIGHT0);
         glEnable(GL_SMOOTH);
         glEnable(GL_LINE_SMOOTH);
-        float position[4] = { 10, 10, 10, 1 };
+        float position[4] = { -10, -10, -10, 1 };
         glLightfv(GL_LIGHT0, GL_POSITION, position);
         handleResize(width, height);
     }
@@ -563,9 +568,18 @@ private:
         Point rotation = Point((viewY * 2) - 1, (viewX * 2) - 1, 0);
         Renderer::camera.rotation = rotation * 180;
     }
+    
 public:
     static void init() {
         glutMotionFunc(mouseMove);
+    }
+    
+    static void changeXAxis(int value) {
+        Renderer::camera.movement = Point(value, 0, 0) * 0.1;
+    }
+    
+    static void changeYAxis(int value) {
+        Renderer::camera.movement = Point(0, 0, value) * 0.1;
     }
 };
 
@@ -578,8 +592,15 @@ class KeyboardHandler final {
 private:
     static void handleKeyUp(unsigned char keyCode, int screenX, int screenY) {
         switch (keyCode) {
-                // switch display options
-            case 's': case 'S': Object::showBoundingBox ^= true;              break;
+            case 'W': case 'w': case 'Z': case 'z': case 'S': case 's':
+                OrbitControls::changeYAxis(0);
+                break;
+                
+            case 'A': case 'a': case 'Q': case 'q': case 'D': case 'd':
+                OrbitControls::changeXAxis(0);
+                break;
+                
+            case 'h': case 'H': Object::showBoundingBox ^= true;              break;
             case 'e': case 'E': Object::showEdgeGraph ^= true;                break;
             case 'b': case 'B': Object::showBoundaryEdgeLoops ^= true;        break;
             case 'k': case 'K': Object::showGaussianCurvatureHeatMap ^= true; break;
@@ -588,9 +609,36 @@ private:
         }
     }
     
+    static void handleKeyDown(unsigned char keyCode, int screenX, int screenY) {
+        switch (keyCode) {
+                // switch display options
+            case 'W': case 'w':
+            case 'Z': case 'z':
+                OrbitControls::changeYAxis(1);
+                break;
+                
+            case 'A': case 'a':
+            case 'Q': case 'q':
+                OrbitControls::changeXAxis(-1);
+                break;
+                
+            case 'S': case 's':
+                OrbitControls::changeYAxis(-1);
+                break;
+                
+            case 'D': case 'd':
+                OrbitControls::changeXAxis(1);
+                break;
+                
+            default:
+                break;
+        }
+    }
+    
 public:
     static void init() {
         glutKeyboardUpFunc(handleKeyUp);
+        glutKeyboardFunc(handleKeyDown);
     }
 };
 
