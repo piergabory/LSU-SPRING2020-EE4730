@@ -190,8 +190,8 @@ public:
                         case  1: color[0] = 1;   color[1] = 0;   color[2] = 0; break;
                         case -1: color[0] = 0;   color[1] = 1;   color[2] = 0; break;
                         case  0:
-                            color[0] = 0.7 + vertexGaussianCurvature[index] * 0.5;
-                            color[1] = 0.7 - vertexGaussianCurvature[index] * 0.5;
+                            color[0] = 0.7 + vertexGaussianCurvature[index] * 5;
+                            color[1] = 0.7 - vertexGaussianCurvature[index] * 5;
                             color[2] = 0.7;
                             break;
                     }
@@ -263,18 +263,11 @@ private:
         faceNormals.resize(mesh->numFaces());
         
         for (MeshFaceIterator faceIt(mesh); !faceIt.end(); ++faceIt) {
-            // collect face points
-            FaceVertexIterator vertexIt(*faceIt);
-            Point v0, v1, v2;
-            v0 = (*vertexIt)->point();
-            ++vertexIt;
-            v1 = (*vertexIt)->point();
-            ++vertexIt;
-            v2 = (*vertexIt)->point();
-            
-            // compute halfedge uv vectors
-            Point u = v1 - v0;
-            Point v = v2 - v0;
+            Halfedge *he = (*faceIt)->he();
+            Point u = he->target()->point() - he->source()->point();
+            he = he->clw_rotate_about_source();
+            if (!he) continue; //
+            Point v = he->target()->point() - he->source()->point();
             
             Point normal = u ^ v;                      // cross product uv
             normal /= normal.norm();                   // normalize
@@ -331,7 +324,7 @@ private:
     
     // MARK: Compute gaussian curvature
     void computeGaussianCurvature() {
-        const float tau = 2 * 3.1415927;
+        const float tau = 2 * 3.14159265359;
         
         vertexGaussianCurvature.empty();
         vertexGaussianCurvature.assign(mesh->numVertices(), tau);
@@ -349,15 +342,15 @@ private:
         
         for (MeshVertexIterator it(mesh); !it.end(); ++it) {
             int index = (*it)->index();
-            const double threshold = 0.0005;
+            const double threshold = 0.05;
             double localCurvature = vertexGaussianCurvature[index];
             
             bool discard = false;
-
+            
             if (abs(localCurvature) < threshold) {
                 discard = true;
             }
-
+            
             else for (VertexOutHalfedgeIterator veit(*it); !veit.end(); ++veit) {
                 if (localCurvature > 0 && localCurvature < vertexGaussianCurvature[(*veit)->target()->index()]) {
                     discard = true;
@@ -419,9 +412,9 @@ private:
             
             // Render edge at a slight offset in front of the face to avoid Z-fighting, using the normal.
             glColor3f(0, 1, 1);
-            glVertex3dv((vertexNormals[source->index()] * 0.003 + source->point()).v);
+            glVertex3dv((vertexNormals[source->index()] * -0.003 + source->point()).v);
             glColor3f(0, 0, 1);
-            glVertex3dv((vertexNormals[target->index()] * 0.003 + target->point()).v);
+            glVertex3dv((vertexNormals[target->index()] * -0.003 + target->point()).v);
         }
         glEnd();
     }
@@ -543,7 +536,7 @@ public:
         glEnable(GL_LIGHT0);
         glEnable(GL_SMOOTH);
         glEnable(GL_LINE_SMOOTH);
-        float position[4] = { 10, 10, 10, 1 };
+        float position[4] = { -10, -10, -10, 1 };
         glLightfv(GL_LIGHT0, GL_POSITION, position);
         handleResize(width, height);
     }
